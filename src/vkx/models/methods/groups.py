@@ -1,0 +1,1343 @@
+import typing
+from typing import Literal, overload
+
+from vkx.models.methods.base_category import BaseCategory
+from vkx.models.objects import *
+from vkx.models.objects import MemberStatus, MemberStatusFull
+from vkx.models.responses.base import (
+    OkResponseModel,
+)
+from vkx.models.responses.groups import *  # type: ignore
+from vkx.models.responses.groups import (
+    GetMembersFieldsFilterManagersResponseModel,
+    GetMembersFieldsResponseModel,
+    GetMembersFilterManagersResponseModel,
+    GetMembersFilterResponseModel,
+    GetMembersResponseModel,
+    IsMemberExtendedResponseModel,
+)
+
+
+class GroupsCategory(BaseCategory):
+    async def add_address(
+        self,
+        address: str,
+        city_id: int,
+        group_id: int,
+        latitude: float,
+        longitude: float,
+        title: str,
+        additional_address: str | None = None,
+        is_main_address: bool | None = None,
+        metro_id: int | None = None,
+        phone: str | None = None,
+        timetable: str | None = None,
+        work_info_status: str | None = None,
+    ) -> "Address":
+        """Method `groups.addAddress()`
+
+        :param address:
+        :param city_id:
+        :param group_id:
+        :param latitude:
+        :param longitude:
+        :param title:
+        :param additional_address:
+        :param is_main_address:
+        :param metro_id:
+        :param phone:
+        :param timetable:
+        :param work_info_status:
+        """
+
+        return await self._call("groups.addAddress", locals(), Address)
+
+    async def add_callback_server(
+        self,
+        group_id: int,
+        title: str,
+        url: str,
+        secret_key: str | None = None,
+    ) -> AddCallbackServerResponseModel:
+        """Method `groups.addCallbackServer()`
+
+        :param group_id:
+        :param title:
+        :param url:
+        :param secret_key:
+        """
+
+        return await self._call("groups.addCallbackServer", locals(), AddCallbackServerResponseModel)
+
+    async def add_link(
+        self,
+        group_id: int,
+        link: str,
+        text: str | None = None,
+    ) -> "LinksItem":
+        """Method `groups.addLink()`
+
+        :param group_id: Community ID.
+        :param link: Link URL.
+        :param text: Description text for the link.
+        """
+
+        return await self._call("groups.addLink", locals(), LinksItem)
+
+    async def approve_request(
+        self,
+        group_id: int,
+        user_id: int,
+    ) -> OkResponseModel:
+        """Method `groups.approveRequest()`
+
+        :param group_id: Community ID.
+        :param user_id: User ID.
+        """
+
+        return await self._call("groups.approveRequest", locals(), OkResponseModel)
+
+    async def ban(
+        self,
+        group_id: int,
+        comment: str | None = None,
+        comment_visible: bool | None = None,
+        end_date: int | None = None,
+        owner_id: int | None = None,
+        reason: int | None = None,
+    ) -> OkResponseModel:
+        """Method `groups.ban()`
+
+        :param group_id:
+        :param comment:
+        :param comment_visible:
+        :param end_date:
+        :param owner_id:
+        :param reason:
+        """
+
+        return await self._call("groups.ban", locals(), OkResponseModel)
+
+    async def create(
+        self,
+        title: str,
+        description: str | None = None,
+        public_category: int | None = None,
+        public_subcategory: int | None = None,
+        subtype: int | None = None,
+        type: str | None = None,
+    ) -> "GroupFull":
+        """Method `groups.create()`
+
+        :param title: Community title.
+        :param description: Community description (ignored for 'type' = 'public').
+        :param public_category: Category ID (for 'type' = 'public' only).
+        :param public_subcategory: Public page subcategory ID.
+        :param subtype: Public page subtype. Possible values: *'1' - place or small business,, *'2' - company, organization or website,, *'3' - famous person or group of people,, *'4' - product or work of art.
+        :param type: Community type. Possible values: *'group' - group,, *'event' - event,, *'public' - public page
+        """
+
+        return await self._call("groups.create", locals(), GroupFull)
+
+    async def delete_address(
+        self,
+        address_id: int,
+        group_id: int,
+    ) -> OkResponseModel:
+        """Method `groups.deleteAddress()`
+
+        :param address_id:
+        :param group_id:
+        """
+
+        return await self._call("groups.deleteAddress", locals(), OkResponseModel)
+
+    async def delete_callback_server(
+        self,
+        group_id: int,
+        server_id: int,
+    ) -> OkResponseModel:
+        """Method `groups.deleteCallbackServer()`
+
+        :param group_id:
+        :param server_id:
+        """
+
+        return await self._call("groups.deleteCallbackServer", locals(), OkResponseModel)
+
+    async def delete_link(
+        self,
+        group_id: int,
+        link_id: int,
+    ) -> OkResponseModel:
+        """Method `groups.deleteLink()`
+
+        :param group_id: Community ID.
+        :param link_id: Link ID.
+        """
+
+        return await self._call("groups.deleteLink", locals(), OkResponseModel)
+
+    async def disable_online(
+        self,
+        group_id: int,
+    ) -> OkResponseModel:
+        """Method `groups.disableOnline()`
+
+        :param group_id:
+        """
+
+        return await self._call("groups.disableOnline", locals(), OkResponseModel)
+
+    async def edit(
+        self,
+        group_id: int,
+        access: int | None = None,
+        addresses: bool | None = None,
+        age_limits: int | None = None,
+        articles: bool | None = None,
+        audio: int | None = None,
+        city: int | None = None,
+        contacts: bool | None = None,
+        country: int | None = None,
+        description: str | None = None,
+        disable_replies_from_groups: bool | None = None,
+        docs: int | None = None,
+        email: str | None = None,
+        event_finish_date: int | None = None,
+        event_group_id: int | None = None,
+        event_start_date: int | None = None,
+        events: bool | None = None,
+        links: bool | None = None,
+        main_section: int | None = None,
+        market: bool | None = None,
+        market_buttons: str | None = None,
+        market_city: list[int] | None = None,
+        market_comments: bool | None = None,
+        market_contact: int | None = None,
+        market_country: list[int] | None = None,
+        market_currency: int | None = None,
+        market_wiki: int | None = None,
+        messages: bool | None = None,
+        obscene_filter: bool | None = None,
+        obscene_stopwords: bool | None = None,
+        obscene_words: list[str] | None = None,
+        phone: str | None = None,
+        photos: int | None = None,
+        places: bool | None = None,
+        public_category: int | None = None,
+        public_date: str | None = None,
+        public_subcategory: int | None = None,
+        rss: str | None = None,
+        screen_name: str | None = None,
+        secondary_section: int | None = None,
+        subject: int | None = None,
+        title: str | None = None,
+        topics: int | None = None,
+        toxic_filter: bool | None = None,
+        video: int | None = None,
+        wall: int | None = None,
+        website: str | None = None,
+        wiki: int | None = None,
+    ) -> OkResponseModel:
+        """Method `groups.edit()`
+
+        :param group_id: Community ID.
+        :param access: Community type. Possible values: *'0' - open,, *'1' - closed,, *'2' - private.
+        :param addresses:
+        :param age_limits: Community age limits. Possible values: *'1' - no limits,, *'2' - 16+,, *'3' - 18+.
+        :param articles:
+        :param audio: Audio settings. Possible values: *'0' - disabled,, *'1' - open,, *'2' - limited (for groups and events only).
+        :param city: City of the community.
+        :param contacts: Contacts settings (for public pages only). Possible values: *'0' - disabled,, *'1' - enabled.
+        :param country: Country of the community.
+        :param description: Community description.
+        :param disable_replies_from_groups:
+        :param docs: Documents settings. Possible values: *'0' - disabled,, *'1' - open,, *'2' - limited (for groups and events only).
+        :param email: Organizer email (for events).
+        :param event_finish_date: Event finish date in Unixtime format.
+        :param event_group_id: Organizer community ID (for events only).
+        :param event_start_date: Event start date in Unixtime format.
+        :param events: Events settings (for public pages only). Possible values: *'0' - disabled,, *'1' - enabled.
+        :param links: Links settings (for public pages only). Possible values: *'0' - disabled,, *'1' - enabled.
+        :param main_section:
+        :param market: Market settings. Possible values: *'0' - disabled,, *'1' - enabled.
+        :param market_buttons: Buttons details, see market/objects.json#/definitions/market_custom_button
+        :param market_city: Market delivery cities (if only one country is specified).
+        :param market_comments: market comments settings. Possible values: *'0' - disabled,, *'1' - enabled.
+        :param market_contact: Seller contact for market. Set '0' for community messages.
+        :param market_country: Market delivery countries.
+        :param market_currency: Market currency settings. Possbile values: , *'643' - Russian rubles,, *'980' - Ukrainian hryvnia,, *'398' - Kazakh tenge,, *'978' - Euro,, *'840' - US dollars
+        :param market_wiki: ID of a wiki page with market description.
+        :param messages: Community messages. Possible values: *'0' - disabled,, *'1' - enabled.
+        :param obscene_filter: Obscene expressions filter in comments. Possible values: , *'0' - disabled,, *'1' - enabled.
+        :param obscene_stopwords: Stopwords filter in comments. Possible values: , *'0' - disabled,, *'1' - enabled.
+        :param obscene_words: Keywords for stopwords filter.
+        :param phone: Organizer phone number (for events).
+        :param photos: Photos settings. Possible values: *'0' - disabled,, *'1' - open,, *'2' - limited (for groups and events only).
+        :param places: Places settings (for public pages only). Possible values: *'0' - disabled,, *'1' - enabled.
+        :param public_category: Public page category ID.
+        :param public_date: Founding date of a company or organization owning the community in "dd.mm.YYYY" format.
+        :param public_subcategory: Public page subcategory ID.
+        :param rss: RSS feed address for import (available only to communities with special permission. Contact vk.com/support to get it.
+        :param screen_name: Community screen name.
+        :param secondary_section:
+        :param subject: Community subject. Possible values: , *'1' - auto/moto,, *'2' - activity holidays,, *'3' - business,, *'4' - pets,, *'5' - health,, *'6' - dating and communication, , *'7' - games,, *'8' - IT (computers and software),, *'9' - cinema,, *'10' - beauty and fashion,, *'11' - cooking,, *'12' - art and culture,, *'13' - literature,, *'14' - mobile services and internet,, *'15' - music,, *'16' - science and technology,, *'17' - real estate,, *'18' - news and media,, *'19' - security,, *'20' - education,, *'21' - home and renovations,, *'22' - politics,, *'23' - food,, *'24' - industry,, *'25' - travel,, *'26' - work,, *'27' - entertainment,, *'28' - religion,, *'29' - family,, *'30' - sports,, *'31' - insurance,, *'32' - television,, *'33' - goods and services,, *'34' - hobbies,, *'35' - finance,, *'36' - photo,, *'37' - esoterics,, *'38' - electronics and appliances,, *'39' - erotic,, *'40' - humor,, *'41' - society, humanities,, *'42' - design and graphics.
+        :param title: Community title.
+        :param topics: Board topics settings. Possbile values: , *'0' - disabled,, *'1' - open,, *'2' - limited (for groups and events only).
+        :param toxic_filter:
+        :param video: Video settings. Possible values: *'0' - disabled,, *'1' - open,, *'2' - limited (for groups and events only).
+        :param wall: Wall settings. Possible values: *'0' - disabled,, *'1' - open,, *'2' - limited (groups and events only),, *'3' - closed (groups and events only).
+        :param website: Website that will be displayed in the community information field.
+        :param wiki: Wiki pages settings. Possible values: *'0' - disabled,, *'1' - open,, *'2' - limited (for groups and events only).
+        """
+
+        return await self._call("groups.edit", locals(), OkResponseModel)
+
+    async def edit_address(
+        self,
+        address_id: int,
+        group_id: int,
+        additional_address: str | None = None,
+        address: str | None = None,
+        city_id: int | None = None,
+        is_main_address: bool | None = None,
+        latitude: float | None = None,
+        longitude: float | None = None,
+        metro_id: int | None = None,
+        phone: str | None = None,
+        timetable: str | None = None,
+        title: str | None = None,
+        work_info_status: str | None = None,
+    ) -> "Address":
+        """Method `groups.editAddress()`
+
+        :param address_id:
+        :param group_id:
+        :param additional_address:
+        :param address:
+        :param city_id:
+        :param is_main_address:
+        :param latitude:
+        :param longitude:
+        :param metro_id:
+        :param phone:
+        :param timetable:
+        :param title:
+        :param work_info_status:
+        """
+
+        return await self._call("groups.editAddress", locals(), Address)
+
+    async def edit_callback_server(
+        self,
+        group_id: int,
+        server_id: int,
+        title: str,
+        url: str,
+        secret_key: str | None = None,
+    ) -> OkResponseModel:
+        """Method `groups.editCallbackServer()`
+
+        :param group_id:
+        :param server_id:
+        :param title:
+        :param url:
+        :param secret_key:
+        """
+
+        return await self._call("groups.editCallbackServer", locals(), OkResponseModel)
+
+    async def edit_link(
+        self,
+        group_id: int,
+        link_id: int,
+        text: str | None = None,
+    ) -> OkResponseModel:
+        """Method `groups.editLink()`
+
+        :param group_id: Community ID.
+        :param link_id: Link ID.
+        :param text: New description text for the link.
+        """
+
+        return await self._call("groups.editLink", locals(), OkResponseModel)
+
+    async def edit_manager(
+        self,
+        group_id: int,
+        user_id: int,
+        contact_email: str | None = None,
+        contact_phone: str | None = None,
+        contact_position: str | None = None,
+        is_call_operator: bool | None = None,
+        is_contact: bool | None = None,
+        role: str | None = None,
+    ) -> OkResponseModel:
+        """Method `groups.editManager()`
+
+        :param group_id: Community ID.
+        :param user_id: User ID.
+        :param contact_email: Contact e-mail.
+        :param contact_phone: Contact phone.
+        :param contact_position: Position to show in Contacts block.
+        :param is_call_operator: '1' — allow the manager to accept community calls.
+        :param is_contact: '1' - to show the manager in Contacts block of the community.
+        :param role: Manager role. Possible values: *'moderator',, *'editor',, *'administrator',, *'advertiser'.
+        """
+
+        return await self._call("groups.editManager", locals(), OkResponseModel)
+
+    async def enable_online(
+        self,
+        group_id: int,
+    ) -> OkResponseModel:
+        """Method `groups.enableOnline()`
+
+        :param group_id:
+        """
+
+        return await self._call("groups.enableOnline", locals(), OkResponseModel)
+
+    @typing.overload
+    async def get(
+        self,
+        extended: typing.Literal[True],
+        count: int | None = None,
+        fields: list[GroupsFields] | None = None,
+        filter: list[Filter] | None = None,
+        offset: int | None = None,
+        user_id: int | None = None,
+    ) -> GetObjectExtendedResponseModel: ...
+
+    @typing.overload
+    async def get(
+        self,
+        extended: typing.Literal[False] | None = None,
+        count: int | None = None,
+        fields: list[GroupsFields] | None = None,
+        filter: list[Filter] | None = None,
+        offset: int | None = None,
+        user_id: int | None = None,
+    ) -> GroupsGetResponseModel: ...
+
+    async def get(
+        self,
+        extended: bool | None = None,
+        count: int | None = None,
+        fields: list[GroupsFields] | None = None,
+        filter: list[Filter] | None = None,
+        offset: int | None = None,
+        user_id: int | None = None,
+    ) -> GroupsGetResponseModel | GetObjectExtendedResponseModel:
+        """Method `groups.get()`
+
+        :param extended: '1' - to return complete information about a user's communities, '0' - to return a list of community IDs without any additional fields (default),
+        :param count: Number of communities to return.
+        :param fields: Profile fields to return.
+        :param filter: Types of communities to return: 'admin' - to return communities administered by the user , 'editor' - to return communities where the user is an administrator or editor, 'moder' - to return communities where the user is an administrator, editor, or moderator, 'groups' - to return only groups, 'publics' - to return only public pages, 'events' - to return only events
+        :param offset: Offset needed to return a specific subset of communities.
+        :param user_id: User ID.
+        """
+
+        return await self._call(
+            "groups.get",
+            locals(),
+            dependent=((("extended",), GetObjectExtendedResponseModel),),
+            default=GroupsGetResponseModel,
+        )
+
+    async def get_addresses(
+        self,
+        group_id: int,
+        address_ids: list[int] | None = None,
+        count: int | None = None,
+        fields: list[AddressFields] | None = None,
+        latitude: float | None = None,
+        longitude: float | None = None,
+        offset: int | None = None,
+    ) -> GetAddressesResponseModel:
+        """Method `groups.getAddresses()`
+
+        :param group_id: ID or screen name of the community.
+        :param address_ids:
+        :param count: Number of community addresses to return.
+        :param fields: Address fields
+        :param latitude: Latitude of  the user geo position.
+        :param longitude: Longitude of the user geo position.
+        :param offset: Offset needed to return a specific subset of community addresses.
+        """
+
+        return await self._call("groups.getAddresses", locals(), GetAddressesResponseModel)
+
+    async def get_banned(
+        self,
+        group_id: int,
+        count: int | None = None,
+        fields: list[UserGroupFields] | None = None,
+        offset: int | None = None,
+        owner_id: int | None = None,
+    ) -> GroupsGetBannedResponseModel:
+        """Method `groups.getBanned()`
+
+        :param group_id: Community ID.
+        :param count: Number of users to return.
+        :param fields:
+        :param offset: Offset needed to return a specific subset of users.
+        :param owner_id:
+        """
+
+        return await self._call("groups.getBanned", locals(), GroupsGetBannedResponseModel)
+
+    async def get_by_id(
+        self,
+        fields: list[GroupsFields] | None = None,
+        group_id: int | str | None = None,
+        group_ids: list[int | str] | None = None,
+    ) -> GetByIdObjectResponseModel:
+        """Method `groups.getById()`
+
+        :param fields: Group fields to return.
+        :param group_id: ID or screen name of the community.
+        :param group_ids: IDs or screen names of communities.
+        """
+
+        return await self._call("groups.getById", locals(), GetByIdObjectResponseModel)
+
+    async def get_callback_confirmation_code(
+        self,
+        group_id: int,
+    ) -> GetCallbackConfirmationCodeResponseModel:
+        """Method `groups.getCallbackConfirmationCode()`
+
+        :param group_id: Community ID.
+        """
+
+        return await self._call("groups.getCallbackConfirmationCode", locals(), GetCallbackConfirmationCodeResponseModel)
+
+    async def get_callback_servers(
+        self,
+        group_id: int,
+        server_ids: list[int] | None = None,
+    ) -> GetCallbackServersResponseModel:
+        """Method `groups.getCallbackServers()`
+
+        :param group_id:
+        :param server_ids:
+        """
+
+        return await self._call("groups.getCallbackServers", locals(), GetCallbackServersResponseModel)
+
+    async def get_callback_settings(
+        self,
+        group_id: int,
+        server_id: int | None = None,
+    ) -> "CallbackSettings":
+        """Method `groups.getCallbackSettings()`
+
+        :param group_id: Community ID.
+        :param server_id: Server ID.
+        """
+
+        return await self._call("groups.getCallbackSettings", locals(), CallbackSettings)
+
+    @typing.overload
+    async def get_catalog_info(
+        self,
+        extended: typing.Literal[True],
+        subcategories: bool | None = None,
+    ) -> GetCatalogInfoExtendedResponseModel: ...
+
+    @typing.overload
+    async def get_catalog_info(
+        self,
+        extended: typing.Literal[False] | None = None,
+        subcategories: bool | None = None,
+    ) -> GetCatalogInfoResponseModel: ...
+
+    async def get_catalog_info(
+        self,
+        extended: bool | None = None,
+        subcategories: bool | None = None,
+    ) -> GetCatalogInfoResponseModel | GetCatalogInfoExtendedResponseModel:
+        """Method `groups.getCatalogInfo()`
+
+        :param extended: 1 - to return communities count and three communities for preview. By default: 0.
+        :param subcategories: 1 - to return subcategories info. By default: 0.
+        """
+
+        return await self._call(
+            "groups.getCatalogInfo",
+            locals(),
+            dependent=((("extended",), GetCatalogInfoExtendedResponseModel),),
+            default=GetCatalogInfoResponseModel,
+        )
+
+    async def get_invited_users(
+        self,
+        group_id: int,
+        count: int | None = None,
+        fields: list[UsersFields] | None = None,
+        name_case: str | None = None,
+        offset: int | None = None,
+    ) -> GetInvitedUsersResponseModel:
+        """Method `groups.getInvitedUsers()`
+
+        :param group_id: Group ID to return invited users for.
+        :param count: Number of results to return.
+        :param fields: List of additional fields to be returned. Available values: 'sex, bdate, city, country, photo_50, photo_100, photo_200_orig, photo_200, photo_400_orig, photo_max, photo_max_orig, online, online_mobile, lists, domain, has_mobile, contacts, connections, site, education, universities, schools, can_post, can_see_all_posts, can_see_audio, can_write_private_message, status, last_seen, common_count, relation, relatives, counters'.
+        :param name_case: Case for declension of user name and surname. Possible values: *'nom' - nominative (default),, *'gen' - genitive,, *'dat' - dative,, *'acc' - accusative, , *'ins' - instrumental,, *'abl' - prepositional.
+        :param offset: Offset needed to return a specific subset of results.
+        """
+
+        return await self._call("groups.getInvitedUsers", locals(), GetInvitedUsersResponseModel)
+
+    @typing.overload
+    async def get_invites(
+        self,
+        extended: typing.Literal[True],
+        count: int | None = None,
+        offset: int | None = None,
+    ) -> GetInvitesExtendedResponseModel: ...
+
+    @typing.overload
+    async def get_invites(
+        self,
+        extended: typing.Literal[False] | None = None,
+        count: int | None = None,
+        offset: int | None = None,
+    ) -> GetInvitesResponseModel: ...
+
+    async def get_invites(
+        self,
+        extended: bool | None = None,
+        count: int | None = None,
+        offset: int | None = None,
+    ) -> GetInvitesExtendedResponseModel | GetInvitesResponseModel:
+        """Method `groups.getInvites()`
+
+        :param extended: '1' - to return additional [vk.com/dev/fields_groups|fields] for communities..
+        :param count: Number of invitations to return.
+        :param offset: Offset needed to return a specific subset of invitations.
+        """
+
+        return await self._call(
+            "groups.getInvites",
+            locals(),
+            dependent=((("extended",), GetInvitesExtendedResponseModel),),
+            default=GetInvitesResponseModel,
+        )
+
+    async def get_long_poll_server(
+        self,
+        group_id: int,
+    ) -> "LongPollServer":
+        """Method `groups.getLongPollServer()`
+
+        :param group_id: Community ID.
+        """
+
+        return await self._call("groups.getLongPollServer", locals(), LongPollServer)
+
+    async def get_long_poll_settings(
+        self,
+        group_id: int,
+    ) -> "LongPollSettings":
+        """Method `groups.getLongPollSettings()`
+
+        :param group_id: Community ID.
+        """
+
+        return await self._call("groups.getLongPollSettings", locals(), LongPollSettings)
+
+
+
+
+
+    async def get_online_status(
+        self,
+        group_id: int,
+    ) -> GetOnlineStatusResponseModel:
+        """Method `groups.getOnlineStatus()`
+
+        :param group_id:
+        """
+
+        return await self._call("groups.getOnlineStatus", locals(), GetOnlineStatusResponseModel)
+
+    @typing.overload
+    async def get_requests(
+        self,
+        group_id: int,
+        fields: list[UsersFields],
+        count: int | None = None,
+        offset: int | None = None,
+    ) -> GetRequestsFieldsResponseModel: ...
+
+    @typing.overload
+    async def get_requests(
+        self,
+        group_id: int,
+        fields: list[UsersFields] | None = None,
+        count: int | None = None,
+        offset: int | None = None,
+    ) -> GroupsGetRequestsResponseModel: ...
+
+    async def get_requests(
+        self,
+        group_id: int,
+        fields: list[UsersFields] | None = None,
+        count: int | None = None,
+        offset: int | None = None,
+    ) -> GroupsGetRequestsResponseModel | GetRequestsFieldsResponseModel:
+        """Method `groups.getRequests()`
+
+        :param group_id: Community ID.
+        :param fields: Profile fields to return.
+        :param count: Number of results to return.
+        :param offset: Offset needed to return a specific subset of results.
+        """
+
+        return await self._call(
+            "groups.getRequests",
+            locals(),
+            dependent=((("fields",), GetRequestsFieldsResponseModel),),
+            default=GroupsGetRequestsResponseModel,
+        )
+
+    async def get_settings(
+        self,
+        group_id: int | str,
+    ) -> GetSettingsResponseModel:
+        """Method `groups.getSettings()`
+
+        :param group_id: Community ID.
+        """
+
+        return await self._call("groups.getSettings", locals(), GetSettingsResponseModel)
+
+    async def get_tag_list(
+        self,
+        group_id: int,
+    ) -> list[GroupTag]:
+        """Method `groups.getTagList()`
+
+        :param group_id:
+        """
+
+        return await self._call("groups.getTagList", locals(), list[GroupTag])
+
+    async def get_token_permissions(
+        self,
+    ) -> GetTokenPermissionsResponseModel:
+        """Method `groups.getTokenPermissions()`"""
+
+        return await self._call("groups.getTokenPermissions", locals(), GetTokenPermissionsResponseModel)
+
+    async def invite(
+        self,
+        group_id: int,
+        user_id: int | None = None,
+        user_ids_list: list[int] | None = None,
+    ) -> OkResponseModel:
+        """Method `groups.invite()`
+
+        :param group_id: Community ID.
+        :param user_id: User ID.
+        :param user_ids_list: User IDs.
+        """
+
+        return await self._call("groups.invite", locals(), OkResponseModel)
+
+
+
+
+
+
+    async def join(
+        self,
+        group_id: int,
+        not_sure: str | None = None,
+    ) -> OkResponseModel:
+        """Method `groups.join()`
+
+        :param group_id: ID or screen name of the community.
+        :param not_sure: Optional parameter which is taken into account when 'gid' belongs to the event: '1' - Perhaps I will attend, '0' - I will be there for sure (default), ,
+        """
+
+        return await self._call("groups.join", locals(), OkResponseModel)
+
+    async def leave(
+        self,
+        group_id: int,
+    ) -> OkResponseModel:
+        """Method `groups.leave()`
+
+        :param group_id: ID or screen name of the community.
+        """
+
+        return await self._call("groups.leave", locals(), OkResponseModel)
+
+    async def remove_user(
+        self,
+        group_id: int,
+        user_id: int,
+    ) -> OkResponseModel:
+        """Method `groups.removeUser()`
+
+        :param group_id: Community ID.
+        :param user_id: User ID.
+        """
+
+        return await self._call("groups.removeUser", locals(), OkResponseModel)
+
+    async def reorder_link(
+        self,
+        group_id: int,
+        link_id: int,
+        after: int | None = None,
+    ) -> OkResponseModel:
+        """Method `groups.reorderLink()`
+
+        :param group_id: Community ID.
+        :param link_id: Link ID.
+        :param after: ID of the link after which to place the link with 'link_id'.
+        """
+
+        return await self._call("groups.reorderLink", locals(), OkResponseModel)
+
+    async def search(
+        self,
+        q: str,
+        city_id: int | None = None,
+        count: int | None = None,
+        country_id: int | None = None,
+        future: bool | None = None,
+        market: bool | None = None,
+        offset: int | None = None,
+        sort: int | None = None,
+        type: str | None = None,
+    ) -> GroupsSearchResponseModel:
+        """Method `groups.search()`
+
+        :param q: Search query string.
+        :param city_id: City ID. If this parameter is transmitted, country_id is ignored.
+        :param count: Number of communities to return. "Note that you can not receive more than first thousand of results, regardless of 'count' and 'offset' values."
+        :param country_id: Country ID.
+        :param future: '1' - to return only upcoming events. Works with the 'type' = 'event' only.
+        :param market: '1' - to return communities with enabled market only.
+        :param offset: Offset needed to return a specific subset of results.
+        :param sort: Sort order. Possible values: *'0' - default sorting (similar the full version of the site),, *'1' - by growth speed,, *'2'- by the "day attendance/members number" ratio,, *'3' - by the "Likes number/members number" ratio,, *'4' - by the "comments number/members number" ratio,, *'5' - by the "boards entries number/members number" ratio.
+        :param type: Community type. Possible values: 'group, page, event.'
+        """
+
+        return await self._call("groups.search", locals(), GroupsSearchResponseModel)
+
+    async def set_callback_settings(
+        self,
+        group_id: int,
+        api_version: str | None = None,
+        audio_new: bool | None = None,
+        board_post_delete: bool | None = None,
+        board_post_edit: bool | None = None,
+        board_post_new: bool | None = None,
+        board_post_restore: bool | None = None,
+        donut_money_withdraw: bool | None = None,
+        donut_money_withdraw_error: bool | None = None,
+        donut_subscription_cancelled: bool | None = None,
+        donut_subscription_create: bool | None = None,
+        donut_subscription_expired: bool | None = None,
+        donut_subscription_price_changed: bool | None = None,
+        donut_subscription_prolonged: bool | None = None,
+        group_change_photo: bool | None = None,
+        group_change_settings: bool | None = None,
+        group_join: bool | None = None,
+        group_leave: bool | None = None,
+        group_officers_edit: bool | None = None,
+        lead_forms_new: bool | None = None,
+        like_add: bool | None = None,
+        like_remove: bool | None = None,
+        market_comment_delete: bool | None = None,
+        market_comment_edit: bool | None = None,
+        market_comment_new: bool | None = None,
+        market_comment_restore: bool | None = None,
+        market_order_edit: bool | None = None,
+        market_order_new: bool | None = None,
+        message_allow: bool | None = None,
+        message_deny: bool | None = None,
+        message_edit: bool | None = None,
+        message_event: bool | None = None,
+        message_new: bool | None = None,
+        message_reaction_event: bool | None = None,
+        message_read: bool | None = None,
+        message_reply: bool | None = None,
+        message_typing_state: bool | None = None,
+        photo_comment_delete: bool | None = None,
+        photo_comment_edit: bool | None = None,
+        photo_comment_new: bool | None = None,
+        photo_comment_restore: bool | None = None,
+        photo_new: bool | None = None,
+        poll_vote_new: bool | None = None,
+        server_id: int | None = None,
+        user_block: bool | None = None,
+        user_unblock: bool | None = None,
+        video_comment_delete: bool | None = None,
+        video_comment_edit: bool | None = None,
+        video_comment_new: bool | None = None,
+        video_comment_restore: bool | None = None,
+        video_new: bool | None = None,
+        wall_post_new: bool | None = None,
+        wall_reply_delete: bool | None = None,
+        wall_reply_edit: bool | None = None,
+        wall_reply_new: bool | None = None,
+        wall_reply_restore: bool | None = None,
+        wall_repost: bool | None = None,
+        wall_schedule_post_delete: bool | None = None,
+        wall_schedule_post_new: bool | None = None,
+    ) -> OkResponseModel:
+        """Method `groups.setCallbackSettings()`
+
+        :param group_id: Community ID.
+        :param api_version:
+        :param audio_new: New audios notifications ('0' - disabled, '1' - enabled).
+        :param board_post_delete: Board posts deleted notifications ('0' - disabled, '1' - enabled).
+        :param board_post_edit: Board posts edited notifications ('0' - disabled, '1' - enabled).
+        :param board_post_new: New board posts notifications ('0' - disabled, '1' - enabled).
+        :param board_post_restore: Board posts restored notifications ('0' - disabled, '1' - enabled).
+        :param donut_money_withdraw:
+        :param donut_money_withdraw_error:
+        :param donut_subscription_cancelled:
+        :param donut_subscription_create:
+        :param donut_subscription_expired:
+        :param donut_subscription_price_changed:
+        :param donut_subscription_prolonged:
+        :param group_change_photo:
+        :param group_change_settings:
+        :param group_join: Joined community notifications ('0' - disabled, '1' - enabled).
+        :param group_leave: Left community notifications ('0' - disabled, '1' - enabled).
+        :param group_officers_edit:
+        :param lead_forms_new: New form in lead forms
+        :param like_add:
+        :param like_remove:
+        :param market_comment_delete: A market comment has been deleted ('0' - disabled, '1' - enabled).
+        :param market_comment_edit: A market comment has been edited ('0' - disabled, '1' - enabled).
+        :param market_comment_new: New comment to market item notifications ('0' - disabled, '1' - enabled).
+        :param market_comment_restore: A market comment has been restored ('0' - disabled, '1' - enabled).
+        :param market_order_edit:
+        :param market_order_new:
+        :param message_allow: Allowed messages notifications ('0' - disabled, '1' - enabled).
+        :param message_deny: Denied messages notifications ('0' - disabled, '1' - enabled).
+        :param message_edit:
+        :param message_event:
+        :param message_new: A new incoming message has been received ('0' - disabled, '1' - enabled).
+        :param message_reaction_event:
+        :param message_read: Messages read notifications ('0' - disabled, '1' - enabled).
+        :param message_reply: A new outcoming message has been received ('0' - disabled, '1' - enabled).
+        :param message_typing_state:
+        :param photo_comment_delete: A photo comment has been deleted ('0' - disabled, '1' - enabled).
+        :param photo_comment_edit: A photo comment has been edited ('0' - disabled, '1' - enabled).
+        :param photo_comment_new: New comment to photo notifications ('0' - disabled, '1' - enabled).
+        :param photo_comment_restore: A photo comment has been restored ('0' - disabled, '1' - enabled).
+        :param photo_new: New photos notifications ('0' - disabled, '1' - enabled).
+        :param poll_vote_new: A vote in a public poll has been added ('0' - disabled, '1' - enabled).
+        :param server_id: Server ID.
+        :param user_block: User added to community blacklist
+        :param user_unblock: User removed from community blacklist
+        :param video_comment_delete: A video comment has been deleted ('0' - disabled, '1' - enabled).
+        :param video_comment_edit: A video comment has been edited ('0' - disabled, '1' - enabled).
+        :param video_comment_new: New comment to video notifications ('0' - disabled, '1' - enabled).
+        :param video_comment_restore: A video comment has been restored ('0' - disabled, '1' - enabled).
+        :param video_new: New videos notifications ('0' - disabled, '1' - enabled).
+        :param wall_post_new: New wall posts notifications ('0' - disabled, '1' - enabled).
+        :param wall_reply_delete: A wall comment has been deleted ('0' - disabled, '1' - enabled).
+        :param wall_reply_edit: Wall replies edited notifications ('0' - disabled, '1' - enabled).
+        :param wall_reply_new: New wall replies notifications ('0' - disabled, '1' - enabled).
+        :param wall_reply_restore: A wall comment has been restored ('0' - disabled, '1' - enabled).
+        :param wall_repost: New wall posts notifications ('0' - disabled, '1' - enabled).
+        :param wall_schedule_post_delete: Scheduled post removed from time slot ('0' - disabled, '1' - enabled).
+        :param wall_schedule_post_new: Scheduled post added to time slot ('0' - disabled, '1' - enabled).
+        """
+
+        return await self._call("groups.setCallbackSettings", locals(), OkResponseModel)
+
+    async def set_long_poll_settings(
+        self,
+        group_id: int,
+        api_version: str | None = None,
+        audio_new: bool | None = None,
+        board_post_delete: bool | None = None,
+        board_post_edit: bool | None = None,
+        board_post_new: bool | None = None,
+        board_post_restore: bool | None = None,
+        donut_money_withdraw: bool | None = None,
+        donut_money_withdraw_error: bool | None = None,
+        donut_subscription_cancelled: bool | None = None,
+        donut_subscription_create: bool | None = None,
+        donut_subscription_expired: bool | None = None,
+        donut_subscription_price_changed: bool | None = None,
+        donut_subscription_prolonged: bool | None = None,
+        enabled: bool | None = None,
+        group_change_photo: bool | None = None,
+        group_change_settings: bool | None = None,
+        group_join: bool | None = None,
+        group_leave: bool | None = None,
+        group_officers_edit: bool | None = None,
+        like_add: bool | None = None,
+        like_remove: bool | None = None,
+        market_comment_delete: bool | None = None,
+        market_comment_edit: bool | None = None,
+        market_comment_new: bool | None = None,
+        market_comment_restore: bool | None = None,
+        message_allow: bool | None = None,
+        message_deny: bool | None = None,
+        message_edit: bool | None = None,
+        message_event: bool | None = None,
+        message_new: bool | None = None,
+        message_reaction_event: bool | None = None,
+        message_read: bool | None = None,
+        message_reply: bool | None = None,
+        message_typing_state: bool | None = None,
+        photo_comment_delete: bool | None = None,
+        photo_comment_edit: bool | None = None,
+        photo_comment_new: bool | None = None,
+        photo_comment_restore: bool | None = None,
+        photo_new: bool | None = None,
+        poll_vote_new: bool | None = None,
+        user_block: bool | None = None,
+        user_unblock: bool | None = None,
+        video_comment_delete: bool | None = None,
+        video_comment_edit: bool | None = None,
+        video_comment_new: bool | None = None,
+        video_comment_restore: bool | None = None,
+        video_new: bool | None = None,
+        wall_post_new: bool | None = None,
+        wall_reply_delete: bool | None = None,
+        wall_reply_edit: bool | None = None,
+        wall_reply_new: bool | None = None,
+        wall_reply_restore: bool | None = None,
+        wall_repost: bool | None = None,
+    ) -> OkResponseModel:
+        """Method `groups.setLongPollSettings()`
+
+        :param group_id: Community ID.
+        :param api_version:
+        :param audio_new: New audios notifications ('0' - disabled, '1' - enabled).
+        :param board_post_delete: Board posts deleted notifications ('0' - disabled, '1' - enabled).
+        :param board_post_edit: Board posts edited notifications ('0' - disabled, '1' - enabled).
+        :param board_post_new: New board posts notifications ('0' - disabled, '1' - enabled).
+        :param board_post_restore: Board posts restored notifications ('0' - disabled, '1' - enabled).
+        :param donut_money_withdraw:
+        :param donut_money_withdraw_error:
+        :param donut_subscription_cancelled:
+        :param donut_subscription_create:
+        :param donut_subscription_expired:
+        :param donut_subscription_price_changed:
+        :param donut_subscription_prolonged:
+        :param enabled: Sets whether Long Poll is enabled ('0' - disabled, '1' - enabled).
+        :param group_change_photo:
+        :param group_change_settings:
+        :param group_join: Joined community notifications ('0' - disabled, '1' - enabled).
+        :param group_leave: Left community notifications ('0' - disabled, '1' - enabled).
+        :param group_officers_edit:
+        :param like_add:
+        :param like_remove:
+        :param market_comment_delete: A market comment has been deleted ('0' - disabled, '1' - enabled).
+        :param market_comment_edit: A market comment has been edited ('0' - disabled, '1' - enabled).
+        :param market_comment_new: New comment to market item notifications ('0' - disabled, '1' - enabled).
+        :param market_comment_restore: A market comment has been restored ('0' - disabled, '1' - enabled).
+        :param message_allow: Allowed messages notifications ('0' - disabled, '1' - enabled).
+        :param message_deny: Denied messages notifications ('0' - disabled, '1' - enabled).
+        :param message_edit: A message has been edited ('0' - disabled, '1' - enabled).
+        :param message_event:
+        :param message_new: A new incoming message has been received ('0' - disabled, '1' - enabled).
+        :param message_reaction_event:
+        :param message_read: Messages read notifications ('0' - disabled, '1' - enabled).
+        :param message_reply: A new outcoming message has been received ('0' - disabled, '1' - enabled).
+        :param message_typing_state:
+        :param photo_comment_delete: A photo comment has been deleted ('0' - disabled, '1' - enabled).
+        :param photo_comment_edit: A photo comment has been edited ('0' - disabled, '1' - enabled).
+        :param photo_comment_new: New comment to photo notifications ('0' - disabled, '1' - enabled).
+        :param photo_comment_restore: A photo comment has been restored ('0' - disabled, '1' - enabled).
+        :param photo_new: New photos notifications ('0' - disabled, '1' - enabled).
+        :param poll_vote_new: A vote in a public poll has been added ('0' - disabled, '1' - enabled).
+        :param user_block: User added to community blacklist
+        :param user_unblock: User removed from community blacklist
+        :param video_comment_delete: A video comment has been deleted ('0' - disabled, '1' - enabled).
+        :param video_comment_edit: A video comment has been edited ('0' - disabled, '1' - enabled).
+        :param video_comment_new: New comment to video notifications ('0' - disabled, '1' - enabled).
+        :param video_comment_restore: A video comment has been restored ('0' - disabled, '1' - enabled).
+        :param video_new: New videos notifications ('0' - disabled, '1' - enabled).
+        :param wall_post_new: New wall posts notifications ('0' - disabled, '1' - enabled).
+        :param wall_reply_delete: A wall comment has been deleted ('0' - disabled, '1' - enabled).
+        :param wall_reply_edit: Wall replies edited notifications ('0' - disabled, '1' - enabled).
+        :param wall_reply_new: New wall replies notifications ('0' - disabled, '1' - enabled).
+        :param wall_reply_restore: A wall comment has been restored ('0' - disabled, '1' - enabled).
+        :param wall_repost: New wall posts notifications ('0' - disabled, '1' - enabled).
+        """
+
+        return await self._call("groups.setLongPollSettings", locals(), OkResponseModel)
+
+    async def set_settings(
+        self,
+        group_id: int,
+        bot_online_booking_enabled: bool | None = None,
+        bots_add_to_chat: bool | None = None,
+        bots_capabilities: bool | None = None,
+        bots_start_button: bool | None = None,
+        messages: bool | None = None,
+    ) -> OkResponseModel:
+        """Method `groups.setSettings()`
+
+        :param group_id:
+        :param bot_online_booking_enabled: If this setting is enabled then online booking chatbot add in your community chats
+        :param bots_add_to_chat: If this setting is enabled then users can add your community to a chat
+        :param bots_capabilities: By enabling bot abilities, you can send users messages with a customized keyboard attached as well as use other promotional abilities
+        :param bots_start_button: If this setting is enabled, users will see a Start button when they start a chat with your community for the first time
+        :param messages:
+        """
+
+        return await self._call("groups.setSettings", locals(), OkResponseModel)
+
+    async def set_user_note(
+        self,
+        group_id: int,
+        user_id: int,
+        note: str | None = None,
+    ) -> bool:
+        """Method `groups.setUserNote()`
+
+        :param group_id:
+        :param user_id:
+        :param note: Note body
+        """
+
+        return await self._call("groups.setUserNote", locals(), bool)
+
+    async def tag_add(
+        self,
+        group_id: int,
+        tag_name: str,
+        tag_color: str | None = None,
+    ) -> bool:
+        """Method `groups.tagAdd()`
+
+        :param group_id:
+        :param tag_name:
+        :param tag_color:
+        """
+
+        return await self._call("groups.tagAdd", locals(), bool)
+
+    async def tag_bind(
+        self,
+        act: str,
+        group_id: int,
+        tag_id: int,
+        user_id: int,
+    ) -> bool:
+        """Method `groups.tagBind()`
+
+        :param act: Describe the action
+        :param group_id:
+        :param tag_id:
+        :param user_id:
+        """
+
+        return await self._call("groups.tagBind", locals(), bool)
+
+    async def tag_delete(
+        self,
+        group_id: int,
+        tag_id: int,
+    ) -> bool:
+        """Method `groups.tagDelete()`
+
+        :param group_id:
+        :param tag_id:
+        """
+
+        return await self._call("groups.tagDelete", locals(), bool)
+
+    async def tag_update(
+        self,
+        group_id: int,
+        tag_id: int,
+        tag_name: str,
+    ) -> bool:
+        """Method `groups.tagUpdate()`
+
+        :param group_id:
+        :param tag_id:
+        :param tag_name:
+        """
+
+        return await self._call("groups.tagUpdate", locals(), bool)
+
+    async def toggle_market(
+        self,
+        group_id: int,
+        state: str,
+        ref: str | None = None,
+    ) -> OkResponseModel:
+        """Method `groups.toggleMarket()`
+
+        :param group_id:
+        :param state:
+        :param ref:
+        """
+
+        return await self._call("groups.toggleMarket", locals(), OkResponseModel)
+
+    async def unban(
+        self,
+        group_id: int,
+        owner_id: int | None = None,
+    ) -> OkResponseModel:
+        """Method `groups.unban()`
+
+        :param group_id:
+        :param owner_id:
+        """
+
+        return await self._call("groups.unban", locals(), OkResponseModel)
+    def __init__(self, api: "typing.Any") -> None:
+        super().__init__(api)
+
+    @overload  # type: ignore
+    async def get_members(
+        self,
+        group_id: str | int | None,
+        sort: Literal["id_asc", "id_desc", "time_asc", "time_desc"] | None = None,
+        offset: int | None = None,
+        count: int | None = None,
+        fields: None = ...,
+        filter: Literal["friends", "unsure", "donut"] | None = ...,
+    ) -> GetMembersFilterResponseModel: ...
+
+    @overload
+    async def get_members(
+        self,
+        group_id: str | None = None,
+        sort: Literal["id_asc", "id_desc", "time_asc", "time_desc"] | None = None,
+        offset: int | None = None,
+        count: int | None = None,
+        fields: list[str] = ...,
+        filter: None = ...,
+    ) -> GetMembersFieldsResponseModel: ...
+
+    @overload
+    async def get_members(
+        self,
+        group_id: str | None = None,
+        sort: Literal["id_asc", "id_desc", "time_asc", "time_desc"] | None = None,
+        offset: int | None = None,
+        count: int | None = None,
+        fields: None = ...,
+        filter: Literal["managers"] = ...,
+    ) -> GetMembersFilterManagersResponseModel: ...
+
+    @overload
+    async def get_members(
+        self,
+        group_id: str | None = None,
+        sort: Literal["id_asc", "id_desc", "time_asc", "time_desc"] | None = None,
+        offset: int | None = None,
+        count: int | None = None,
+        fields: list[str] = ...,
+        filter: Literal["managers"] = ...,
+    ) -> GetMembersFieldsFilterManagersResponseModel: ...
+
+    async def get_members(
+        self,
+        group_id=None,
+        sort=None,
+        offset=None,
+        count=None,
+        fields=None,
+        filter=None,
+    ) -> (
+        GetMembersFilterManagersResponseModel
+        | GetMembersFieldsFilterManagersResponseModel
+        | GetMembersResponseModel
+        | GetMembersFilterResponseModel
+        | GetMembersFieldsResponseModel
+    ):
+        """Returns a list of community members.
+
+        :param group_id: ID or screen name of the community.
+        :param sort: Sort order. Available values: 'id_asc', 'id_desc', 'time_asc', 'time_desc'. 'time_asc' and 'time_desc' are availavle only if the method is called by the group's 'moderator'.
+        :param offset: Offset needed to return a specific subset of community members.
+        :param count: Number of community members to return.
+        :param fields: List of additional fields to be returned. Available values: 'sex, bdate, city, country, photo_50, photo_100, photo_200_orig, photo_200, photo_400_orig, photo_max, photo_max_orig, online, online_mobile, lists, domain, has_mobile, contacts, connections, site, education, universities, schools, can_post, can_see_all_posts, can_see_audio, can_write_private_message, status, last_seen, common_count, relation, relatives, counters'.
+        :param filter: *'friends' - only friends in this community will be returned,, *'unsure' - only those who pressed 'I may attend' will be returned (if it's an event).
+        """
+
+        return await self._call(
+            "groups.getMembers",
+            locals(),
+            dependent=( ((("filter", "managers"),), GetMembersFilterManagersResponseModel), ( (("filter", "managers"), "fields"), GetMembersFieldsFilterManagersResponseModel, ), (("fields",), GetMembersFieldsResponseModel), (("filter",), GetMembersFilterResponseModel), ),
+            default=GetMembersResponseModel,
+        )
+
+    @overload  # type: ignore
+    async def is_member(
+        self,
+        *,
+        group_id: int | str,
+        user_ids: list[int],
+        extended: Literal[True],
+    ) -> list[MemberStatusFull]: ...
+
+    @overload
+    async def is_member(
+        self,
+        *,
+        group_id: int | str,
+        user_id: int,
+        extended: Literal[True],
+    ) -> IsMemberExtendedResponseModel: ...
+
+    @overload
+    async def is_member(
+        self,
+        *,
+        group_id: int | str,
+        user_ids: list[int],
+    ) -> list[MemberStatus]: ...
+
+    @overload
+    async def is_member(
+        self,
+        *,
+        group_id: int | str,
+        user_id: int,
+    ) -> bool: ...
+
+    async def is_member(
+        self,
+        *,
+        group_id: int | str,
+        extended: bool | None = None,
+        user_ids: list[int] | None = None,
+        user_id: int | None = None,
+    ) -> list[MemberStatus] | bool | IsMemberExtendedResponseModel | list[MemberStatusFull]:
+        """Method `groups.isMember()`
+
+        :param group_id: ID or screen name of the community.
+        :param extended: '1' - to return an extended response with additional fields. By default: '0'.
+        :param user_ids: User IDs.
+        :param user_id: User ID.
+        """
+
+        return await self._call(
+            "groups.isMember",
+            locals(),
+            dependent=( (("user_id", "extended"), IsMemberExtendedResponseModel), (("user_ids", "extended"), list[MemberStatusFull]), (("user_ids",), list[MemberStatus]), ),
+            default=bool,
+        )
+
+
+__all__ = ("GroupsCategory",)
+
+
+__all__ = ("GroupsCategory",)

@@ -1,0 +1,16 @@
+[project]
+name = "vkx"
+version = "0.1.0"
+requires-python = ">=3.13"
+dependencies = [
+    "pillow>=12.3.0",
+    "pydantic>=2.13.5",
+    "qrcode>=8.2",
+    "vkbottle-types>=5.199.99.22",
+]
+
+[project.optional-dependencies]
+http = ["httpx>=0.28.1"]
+
+[dependency-groups]
+dev = ["httpx>=0.28.1"]
