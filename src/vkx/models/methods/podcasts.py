@@ -1,7 +1,5 @@
-
-from vkx.models.methods.base_category import BaseCategory
-from vkx.models.objects import *
-from vkx.models.responses.podcasts import *  # type: ignore
+from ..responses.podcasts import *  # type: ignore
+from .base_category import BaseCategory
 
 
 class PodcastsCategory(BaseCategory):

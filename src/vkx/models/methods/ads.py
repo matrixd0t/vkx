@@ -1,17 +1,15 @@
 import typing
 
-from vkx.models.methods.base_category import BaseCategory
-from vkx.models.objects import *
-from vkx.models.objects import (
+from ..objects import *
+from ..objects import (
     TargSuggestions,
     TargSuggestionsCities,
     TargSuggestionsRegions,
     TargSuggestionsSchools,
 )
-from vkx.models.responses.ads import *  # type: ignore
-from vkx.models.responses.base import (
-    OkResponseModel,
-)
+from ..responses.ads import *  # type: ignore
+from ..responses.base import OkResponseModel
+from .base_category import BaseCategory
 
 
 class AdsCategory(BaseCategory):

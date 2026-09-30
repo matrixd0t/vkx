@@ -1,5 +1,5 @@
-from vkx.models.base_model import BaseModel, Field
-from vkx.models.objects import ShortCredentials
+from ..base_model import BaseModel, Field
+from ..objects import ShortCredentials
 
 
 class StartResponseModel(BaseModel):
@@ -17,6 +17,7 @@ class StartResponseModel(BaseModel):
     short_credentials: "ShortCredentials | None" = Field(
         default=None,
     )
+
 
 __all__ = (
     "StartResponseModel",

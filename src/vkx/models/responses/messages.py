@@ -1,5 +1,5 @@
-from vkx.models.base_model import BaseModel, Field
-from vkx.models.objects import (
+from ..base_model import BaseModel, Field
+from ..objects import (
     Chat,
     ChatPreview,
     Conversation,
@@ -25,6 +25,7 @@ class AddChatUsersResponseModel(BaseModel):
     failed_phone_numbers: list[str] = Field()
     invitees: list[int] = Field()
 
+
 class CreateChatWithPeerIdsResponseModel(BaseModel):
     chat_id: int | None = Field(
         default=None,
@@ -32,6 +33,7 @@ class CreateChatWithPeerIdsResponseModel(BaseModel):
     peer_ids: list[int] | None = Field(
         default=None,
     )
+
 
 class DeleteChatPhotoResponseModel(BaseModel):
     message_id: int | None = Field(
@@ -41,8 +43,10 @@ class DeleteChatPhotoResponseModel(BaseModel):
         default=None,
     )
 
+
 class DeleteConversationResponseModel(BaseModel):
     last_deleted_id: int = Field()
+
 
 class GetByConversationMessageIdExtendedResponseModel(BaseModel):
     count: int = Field()
@@ -54,9 +58,11 @@ class GetByConversationMessageIdExtendedResponseModel(BaseModel):
         default=None,
     )
 
+
 class GetByConversationMessageIdResponseModel(BaseModel):
     count: int = Field()
     items: list["Message"] = Field()
+
 
 class MessagesGetByIdExtendedResponseModel(BaseModel):
     count: int = Field()
@@ -68,9 +74,11 @@ class MessagesGetByIdExtendedResponseModel(BaseModel):
         default=None,
     )
 
+
 class MessagesGetByIdResponseModel(BaseModel):
     count: int = Field()
     items: list["Message"] = Field()
+
 
 class GetChatPreviewResponseModel(BaseModel):
     preview: "ChatPreview" = Field()
@@ -80,6 +88,7 @@ class GetChatPreviewResponseModel(BaseModel):
     groups: list["GroupFull"] | None = Field(
         default=None,
     )
+
 
 class GetConversationsResponseModel(BaseModel):
     count: int = Field()
@@ -94,6 +103,7 @@ class GetConversationsResponseModel(BaseModel):
         default=None,
     )
 
+
 class GetHistoryAttachmentsResponseModel(BaseModel):
     items: list["HistoryAttachment"] = Field()
     next_from: str | None = Field(
@@ -105,6 +115,7 @@ class GetHistoryAttachmentsResponseModel(BaseModel):
     groups: list["GroupFull"] | None = Field(
         default=None,
     )
+
 
 class GetHistoryExtendedResponseModel(BaseModel):
     count: int = Field()
@@ -119,9 +130,11 @@ class GetHistoryExtendedResponseModel(BaseModel):
         default=None,
     )
 
+
 class GetHistoryResponseModel(BaseModel):
     count: int = Field()
     items: list["Message"] = Field()
+
 
 class GetImportantMessagesExtendedResponseModel(BaseModel):
     messages: "MessagesArray" = Field()
@@ -135,6 +148,7 @@ class GetImportantMessagesExtendedResponseModel(BaseModel):
         default=None,
     )
 
+
 class GetImportantMessagesResponseModel(BaseModel):
     messages: "MessagesArray" = Field()
     profiles: list["User"] | None = Field(
@@ -147,6 +161,7 @@ class GetImportantMessagesResponseModel(BaseModel):
         default=None,
     )
 
+
 class GetIntentUsersResponseModel(BaseModel):
     count: int = Field()
     items: list[int] = Field()
@@ -154,13 +169,16 @@ class GetIntentUsersResponseModel(BaseModel):
         default=None,
     )
 
+
 class GetInviteLinkByOwnerResponseModel(BaseModel):
     items: list["GetInviteLinkByOwnerResponseItem"] = Field()
+
 
 class GetInviteLinkResponseModel(BaseModel):
     link: str | None = Field(
         default=None,
     )
+
 
 class GetLongPollHistoryResponseModel(BaseModel):
     history: list[list[str | int]] | None = Field(
@@ -194,6 +212,7 @@ class GetLongPollHistoryResponseModel(BaseModel):
         default=None,
     )
 
+
 class GetMessagesReactionsResponseModel(BaseModel):
     items: list["ReactionCountersResponseItem"] = Field()
     profiles: list["UserFull"] | None = Field(
@@ -202,6 +221,7 @@ class GetMessagesReactionsResponseModel(BaseModel):
     groups: list["GroupFull"] | None = Field(
         default=None,
     )
+
 
 class GetReactedPeersResponseModel(BaseModel):
     count: int = Field()
@@ -214,6 +234,7 @@ class GetReactedPeersResponseModel(BaseModel):
         default=None,
     )
 
+
 class GetReactionsAssetsResponseModel(BaseModel):
     version: int = Field()
     assets: list["ReactionAssetItem"] = Field()
@@ -222,15 +243,18 @@ class GetReactionsAssetsResponseModel(BaseModel):
         default=None,
     )
 
+
 class IsMessagesFromGroupAllowedResponseModel(BaseModel):
     is_allowed: bool | None = Field(
         default=None,
     )
 
+
 class JoinChatByInviteLinkResponseModel(BaseModel):
     chat_id: int | None = Field(
         default=None,
     )
+
 
 class SearchConversationsExtendedResponseModel(BaseModel):
     count: int = Field()
@@ -242,9 +266,11 @@ class SearchConversationsExtendedResponseModel(BaseModel):
         default=None,
     )
 
+
 class SearchConversationsResponseModel(BaseModel):
     count: int = Field()
     items: list["Conversation"] = Field()
+
 
 class MessagesSearchExtendedResponseModel(BaseModel):
     count: int = Field()
@@ -259,9 +285,11 @@ class MessagesSearchExtendedResponseModel(BaseModel):
         default=None,
     )
 
+
 class MessagesSearchResponseModel(BaseModel):
     count: int = Field()
     items: list["Message"] = Field()
+
 
 class SetChatPhotoResponseModel(BaseModel):
     message_id: int | None = Field(
@@ -270,6 +298,7 @@ class SetChatPhotoResponseModel(BaseModel):
     chat: "Chat | None" = Field(
         default=None,
     )
+
 
 __all__ = (
     "AddChatUsersResponseModel",

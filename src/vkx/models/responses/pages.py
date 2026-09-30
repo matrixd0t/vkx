@@ -1,4 +1,4 @@
-from vkx.models.base_model import BaseModel, Field
+from ..base_model import BaseModel, Field
 
 
 class GetVersionResponseModel(BaseModel):
@@ -23,6 +23,7 @@ class GetVersionResponseModel(BaseModel):
     html: str | None = Field(
         default=None,
     )
+
 
 __all__ = (
     "GetVersionResponseModel",

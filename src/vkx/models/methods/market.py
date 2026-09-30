@@ -1,11 +1,9 @@
 import typing
 
-from vkx.models.methods.base_category import BaseCategory
-from vkx.models.objects import *
-from vkx.models.responses.base import (
-    OkResponseModel,
-)
-from vkx.models.responses.market import *  # type: ignore
+from ..objects import *
+from ..responses.base import OkResponseModel
+from ..responses.market import *  # type: ignore
+from .base_category import BaseCategory
 
 
 class MarketCategory(BaseCategory):

@@ -5,15 +5,15 @@
 ``methods`` (типизированные категории), ``events`` (longpoll/callback-события).
 """
 
-from vkx.models import objects as _objects
-from vkx.models.categories import APICategories
-from vkx.models.events import *
-from vkx.models.events import bot_events as _bot_events
-from vkx.models.events import callback_events as _callback_events
-from vkx.models.events.bot_events import *
-from vkx.models.events.callback_events import *
-from vkx.models.events.enums import *
-from vkx.models.objects import *
+from . import objects as _objects
+from .categories import APICategories
+from .events import *
+from .events import bot_events as _bot_events
+from .events import callback_events as _callback_events
+from .events.bot_events import *
+from .events.callback_events import *
+from .events.enums import *
+from .objects import *
 
 API_URL: str = "https://api.vk.ru/method/"
 API_VERSION: str = "5.199"
@@ -29,9 +29,7 @@ __all__ = [  # noqa: PLE0604
     "CallbackEventType",
     "Event",
     "GroupEventType",
-    "GroupTypes",
     "UserEventType",
-    "UserTypes",
     *_objects.__all__,
     *_bot_events.__all__,
     *_callback_events.__all__,

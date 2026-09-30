@@ -1,14 +1,16 @@
-from vkx.models.base_model import BaseModel, Field
-from vkx.models.objects import Product, StickerNew, StickersKeyword
+from ..base_model import BaseModel, Field
+from ..objects import Product, StickerNew, StickersKeyword
 
 
 class GetFavoriteStickersResponseModel(BaseModel):
     count: int = Field()
     items: list["StickerNew"] = Field()
 
+
 class GetProductsResponseModel(BaseModel):
     items: list["Product"] = Field()
     count: int = Field()
+
 
 class GetStickersKeywordsResponseModel(BaseModel):
     count: int = Field()
@@ -19,6 +21,7 @@ class GetStickersKeywordsResponseModel(BaseModel):
     chunks_hash: str | None = Field(
         default=None,
     )
+
 
 __all__ = (
     "GetFavoriteStickersResponseModel",

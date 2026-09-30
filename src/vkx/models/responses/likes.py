@@ -1,14 +1,16 @@
 import typing
 
-from vkx.models.base_model import BaseModel, Field
-from vkx.models.objects import SubscriptionsItem
+from ..base_model import BaseModel, Field
+from ..objects import SubscriptionsItem
 
 
 class LikesAddResponseModel(BaseModel):
     likes: int = Field()
 
+
 class LikesDeleteResponseModel(BaseModel):
     likes: int = Field()
+
 
 class GetListExtendedResponseModel(BaseModel):
     count: int = Field()
@@ -20,13 +22,16 @@ class GetListExtendedResponseModel(BaseModel):
         default=None,
     )
 
+
 class GetListResponseModel(BaseModel):
     count: int = Field()
     items: list[int] = Field()
 
+
 class IsLikedResponseModel(BaseModel):
     liked: bool = Field()
     copied: bool = Field()
+
 
 __all__ = (
     "GetListExtendedResponseModel",

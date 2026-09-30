@@ -1,4 +1,4 @@
-from vkx.models.base_model import BaseModel, Field
+from ..base_model import BaseModel, Field
 
 
 class TranslationsTranslateResponseModel(BaseModel):
@@ -8,6 +8,7 @@ class TranslationsTranslateResponseModel(BaseModel):
     source_lang: str | None = Field(
         default=None,
     )
+
 
 __all__ = (
     "TranslationsTranslateResponseModel",

@@ -1,11 +1,7 @@
-import typing
-
-from vkx.models.methods.base_category import BaseCategory
-from vkx.models.objects import *
-from vkx.models.responses.base import (
-    OkResponseModel,
-)
-from vkx.models.responses.photos import *  # type: ignore
+from ..objects import *
+from ..responses.base import OkResponseModel
+from ..responses.photos import *  # type: ignore
+from .base_category import BaseCategory
 
 
 class PhotosCategory(BaseCategory):
@@ -439,7 +435,6 @@ class PhotosCategory(BaseCategory):
 
         return await self._call("photos.getNewTags", locals(), GetNewTagsResponseModel)
 
-
     async def get_owner_photo_upload_server(
         self,
         owner_id: int | None = None,
@@ -815,6 +810,7 @@ class PhotosCategory(BaseCategory):
         """
 
         return await self._call("photos.search", locals(), PhotosSearchResponseModel)
+
     async def get_owner_cover_photo_upload_server(
         self,
         crop_width: int | None = None,
@@ -835,12 +831,10 @@ class PhotosCategory(BaseCategory):
         :param crop_y: Y coordinate of the left-upper corner
         :param crop_y2: Y coordinate of the right-bottom corner
         :param group_id: ID of community that owns the album (if the photo will be uploaded to a community album).
+        :param is_video_cover:
         """
 
         return await self._call("photos.getOwnerCoverPhotoUploadServer", locals(), UploadServer)
-
-
-__all__ = ("PhotosCategory",)
 
 
 __all__ = ("PhotosCategory",)

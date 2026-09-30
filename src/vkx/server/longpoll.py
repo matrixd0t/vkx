@@ -15,16 +15,15 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from vkx.models.events.user_events import BaseUserEvent, parse_user_event
-
+from ..models.events.user_events import BaseUserEvent, parse_user_event
 from ._polling import DEFAULT_LP_VERSION, DEFAULT_WAIT, BaseLongPoll
 
 if TYPE_CHECKING:
     import logging
     from collections.abc import Iterable
 
-    from vkx.client.client import VKClient
-    from vkx.client.http import HttpClient
+    from ..client.client import VKClient
+    from ..client.http import HttpClient
 
 DEFAULT_MODE = 234
 

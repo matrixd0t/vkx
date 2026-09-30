@@ -1,5 +1,5 @@
-from vkx.models.base_model import BaseModel, Field
-from vkx.models.objects import (
+from ..base_model import BaseModel, Field
+from ..objects import (
     BaseCountry,
     BaseObject,
     DatabaseCity,

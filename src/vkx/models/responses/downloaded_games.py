@@ -1,4 +1,4 @@
-from vkx.models.base_model import BaseModel, Field
+from ..base_model import BaseModel, Field
 
 
 class PaidStatusResponseModel(BaseModel):

@@ -15,18 +15,17 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from vkx.client.client import VKError
-from vkx.models.events.callback_events import CallbackEvent
-from vkx.server.callback import parse_callback
-
+from ..client.client import VKError
+from ..models.events.callback_events import CallbackEvent
 from ._polling import DEFAULT_WAIT, BaseLongPoll
+from .callback import parse_callback
 
 if TYPE_CHECKING:
     import logging
     from collections.abc import Iterable
 
-    from vkx.client.client import VKClient
-    from vkx.client.http import HttpClient
+    from ..client.client import VKClient
+    from ..client.http import HttpClient
 
 
 class BotsLongPoll(BaseLongPoll):

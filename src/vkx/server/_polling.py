@@ -23,8 +23,8 @@ from collections.abc import AsyncIterator, Iterable
 from typing import TYPE_CHECKING, Any, Self
 
 if TYPE_CHECKING:
-    from vkx.client.client import VKClient
-    from vkx.client.http import HttpClient
+    from ..client.client import VKClient
+    from ..client.http import HttpClient
 
 DEFAULT_WAIT = 25
 MAX_WAIT = 90

@@ -1,9 +1,6 @@
 from typing import Any
 
-import pydantic
-
-from vkx.models.base_model import BaseModel
-from vkx.models.objects import *
+from ...objects import *
 
 
 class EventObject(BaseModel):

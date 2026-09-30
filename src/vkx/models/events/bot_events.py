@@ -2,8 +2,7 @@ from typing import Any
 
 import pydantic
 
-from vkx.models.base_model import BaseModel
-
+from ..base_model import BaseModel
 from .enums import GroupEventType
 from .objects import group_event_objects
 

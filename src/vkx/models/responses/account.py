@@ -1,5 +1,5 @@
-from vkx.models.base_model import BaseModel, Field
-from vkx.models.objects import (
+from ..base_model import BaseModel, Field
+from ..objects import (
     Group,
     NameRequest,
     Offer,
@@ -13,9 +13,11 @@ class ChangePasswordResponseModel(BaseModel):
         default=None,
     )
 
+
 class GetActiveOffersResponseModel(BaseModel):
     count: int = Field()
     items: list["Offer"] = Field()
+
 
 class AccountGetBannedResponseModel(BaseModel):
     count: int = Field()
@@ -27,11 +29,13 @@ class AccountGetBannedResponseModel(BaseModel):
         default=None,
     )
 
+
 class SaveProfileInfoResponseModel(BaseModel):
     changed: bool = Field()
     name_request: "NameRequest | None" = Field(
         default=None,
     )
+
 
 __all__ = (
     "AccountGetBannedResponseModel",

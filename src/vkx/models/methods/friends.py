@@ -1,23 +1,21 @@
 import typing
 
-from vkx.models.methods.base_category import BaseCategory
-from vkx.models.objects import *
-from vkx.models.objects import (
+from ..objects import *
+from ..objects import (
     MutualFriend,
     OnlineUsers,
     OnlineUsersWithMobile,
     UsersFields,
 )
-from vkx.models.responses.base import (
-    OkResponseModel,
-)
-from vkx.models.responses.friends import *  # type: ignore
-from vkx.models.responses.friends import (
+from ..responses.base import OkResponseModel
+from ..responses.friends import *  # type: ignore
+from ..responses.friends import (
     FriendsGetRequestsResponseModel,
     GetOnlineOnlineMobileResponseModel,
     GetRequestsExtendedResponseModel,
     GetRequestsNeedMutualResponseModel,
 )
+from .base_category import BaseCategory
 
 
 class FriendsCategory(BaseCategory):

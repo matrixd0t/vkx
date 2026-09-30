@@ -4,7 +4,7 @@ from typing import Any
 
 import pydantic
 
-from vkx.models.base_model import BaseModel
+from ...base_model import BaseModel
 
 JsonObject = dict[str, Any] | list[Any]
 Attachments = JsonObject

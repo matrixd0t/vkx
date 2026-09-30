@@ -1,14 +1,11 @@
 import typing
 from typing import Literal, overload
 
-from vkx.models.methods.base_category import BaseCategory
-from vkx.models.objects import *
-from vkx.models.objects import MemberStatus, MemberStatusFull
-from vkx.models.responses.base import (
-    OkResponseModel,
-)
-from vkx.models.responses.groups import *  # type: ignore
-from vkx.models.responses.groups import (
+from ..objects import *
+from ..objects import MemberStatus, MemberStatusFull
+from ..responses.base import OkResponseModel
+from ..responses.groups import *  # type: ignore
+from ..responses.groups import (
     GetMembersFieldsFilterManagersResponseModel,
     GetMembersFieldsResponseModel,
     GetMembersFilterManagersResponseModel,
@@ -16,6 +13,7 @@ from vkx.models.responses.groups import (
     GetMembersResponseModel,
     IsMemberExtendedResponseModel,
 )
+from .base_category import BaseCategory
 
 
 class GroupsCategory(BaseCategory):
@@ -1249,12 +1247,12 @@ class GroupsCategory(BaseCategory):
 
     async def get_members(
         self,
-        group_id=None,
-        sort=None,
-        offset=None,
-        count=None,
-        fields=None,
-        filter=None,
+        group_id: str | int | None = None,
+        sort: Literal["id_asc", "id_desc", "time_asc", "time_desc"] | None = None,
+        offset: int | None = None,
+        count: int | None = None,
+        fields: list[str] | None = None,
+        filter: Literal["friends", "unsure", "donut", "managers"] | None = None,
     ) -> (
         GetMembersFilterManagersResponseModel
         | GetMembersFieldsFilterManagersResponseModel

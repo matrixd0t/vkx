@@ -1,5 +1,5 @@
-from vkx.models.base_model import BaseModel, Field
-from vkx.models.objects import (
+from ..base_model import BaseModel, Field
+from ..objects import (
     AudioMessage,
     Doc,
     DocAttachmentType,
@@ -13,13 +13,16 @@ class DocUploadResponseModel(BaseModel):
         default=None,
     )
 
+
 class GetTypesResponseModel(BaseModel):
     count: int = Field()
     items: list["DocTypes"] = Field()
 
+
 class DocsGetResponseModel(BaseModel):
     count: int = Field()
     items: list["Doc"] = Field()
+
 
 class DocsSaveResponseModel(BaseModel):
     type: "DocAttachmentType | None" = Field(
@@ -47,6 +50,7 @@ class DocsSaveResponseModel(BaseModel):
 class DocsSearchResponseModel(BaseModel):
     count: int = Field()
     items: list["Doc"] = Field()
+
 
 __all__ = (
     "DocUploadResponseModel",

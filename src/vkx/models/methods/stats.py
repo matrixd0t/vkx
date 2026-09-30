@@ -1,9 +1,7 @@
 
-from vkx.models.methods.base_category import BaseCategory
-from vkx.models.objects import *
-from vkx.models.responses.base import (
-    OkResponseModel,
-)
+from ..objects import *
+from ..responses.base import OkResponseModel
+from .base_category import BaseCategory
 
 
 class StatsCategory(BaseCategory):

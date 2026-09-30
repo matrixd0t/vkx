@@ -1,7 +1,6 @@
 from typing import Any, Self
 
-from vkx.models.base_model import BaseModel
-
+from ..base_model import BaseModel
 from .enums import UserEventType
 from .objects import user_event_objects
 

@@ -1,18 +1,8 @@
-import typing
-
-from vkx.models.methods.base_category import BaseCategory
-from vkx.models.objects import *
-from vkx.models.objects import UserGroupFields
-from vkx.models.responses.base import (
-    OkResponseModel,
-)
-from vkx.models.responses.newsfeed import *  # type: ignore
-from vkx.models.responses.newsfeed import (
-    NewsfeedSearchExtendedResponseModel,
-    NewsfeedSearchResponseModel,
-    SearchExtendedStrictResponseModel,
-    SearchStrictResponseModel,
-)
+from ..objects import *
+from ..objects import UserGroupFields
+from ..responses.base import OkResponseModel
+from ..responses.newsfeed import *  # type: ignore
+from .base_category import BaseCategory
 
 
 class NewsfeedCategory(BaseCategory):
@@ -264,11 +254,6 @@ class NewsfeedCategory(BaseCategory):
 
         return await self._call("newsfeed.saveList", locals(), int)
 
-
-
-
-
-
     async def unignore_item(
         self,
         type: str,
@@ -300,6 +285,7 @@ class NewsfeedCategory(BaseCategory):
         """
 
         return await self._call("newsfeed.unsubscribe", locals(), OkResponseModel)
+
     @typing.overload  # type: ignore
     async def search(
         self,
@@ -382,6 +368,7 @@ class NewsfeedCategory(BaseCategory):
         """Method `newsfeed.search()`
 
         :param extended: '1' - to return additional information about the user or community that placed the post.
+        :param strict:
         :param count: Number of posts to return.
         :param end_time: Latest timestamp (in Unix time) of a news item to return. By default, the current time.
         :param fields: Additional fields of [vk.ru/dev/fields|profiles] and [vk.ru/dev/fields_groups|communities] to return.

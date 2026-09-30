@@ -1,7 +1,6 @@
-
-from vkx.models.methods.base_category import BaseCategory
-from vkx.models.objects import *
-from vkx.models.responses.database import *  # type: ignore
+from ..objects import *
+from ..responses.database import *  # type: ignore
+from .base_category import BaseCategory
 
 
 class DatabaseCategory(BaseCategory):

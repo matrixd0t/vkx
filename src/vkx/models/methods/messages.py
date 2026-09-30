@@ -1,13 +1,11 @@
 import typing
 from typing import Literal
 
-from vkx.models.methods.base_category import BaseCategory
-from vkx.models.objects import *
-from vkx.models.objects import Chat, ChatFull, SendUserIdsResponseItem, UsersFields
-from vkx.models.responses.base import (
-    OkResponseModel,
-)
-from vkx.models.responses.messages import *  # type: ignore
+from ..objects import *
+from ..objects import Chat, ChatFull, SendUserIdsResponseItem, UsersFields
+from ..responses.base import OkResponseModel
+from ..responses.messages import *  # type: ignore
+from .base_category import BaseCategory
 
 
 class MessagesCategory(BaseCategory):
@@ -1167,30 +1165,45 @@ class MessagesCategory(BaseCategory):
 
     async def send(
             self,
-            user_id=None,
-            random_id=None,
-            peer_id=None,
-            peer_ids=None,
-            domain=None,
-            chat_id=None,
-            user_ids=None,
-            message=None,
-            lat=None,
-            long=None,
-            attachment=None,
-            reply_to=None,
-            forward_messages=None,
-            forward=None,
-            sticker_id=None,
-            group_id=None,
-            keyboard=None,
-            template=None,
-            payload=None,
-            content_source=None,
-            dont_parse_links=None,
-            disable_mentions=None,
-            intent=None,
-            subscribe_id=None,
+            user_id: int | None = None,
+            random_id: int | None = None,
+            peer_id: int | None = None,
+            peer_ids: list[int] | None = None,
+            domain: str | None = None,
+            chat_id: int | None = None,
+            user_ids: list[int] | None = None,
+            message: str | None = None,
+            lat: float | None = None,
+            long: float | None = None,
+            attachment: str | None = None,
+            reply_to: int | None = None,
+            forward_messages: list[int] | None = None,
+            forward: str | None = None,
+            sticker_id: int | None = None,
+            group_id: int | None = None,
+            keyboard: str | None = None,
+            template: str | None = None,
+            payload: str | None = None,
+            content_source: str | None = None,
+            dont_parse_links: bool | None = None,
+            disable_mentions: bool | None = None,
+            intent: (
+                    Literal[
+                        "account_update",
+                        "bot_ad_invite",
+                        "bot_ad_promo",
+                        "confirmed_notification",
+                        "customer_support",
+                        "default",
+                        "game_notification",
+                        "moderated_newsletter",
+                        "non_promo_newsletter",
+                        "promo_newsletter",
+                        "purchase_update",
+                    ]
+                    | None
+            ) = None,
+            subscribe_id: int | None = None,
     ) -> list[SendUserIdsResponseItem] | int:
         """Sends a message.
 

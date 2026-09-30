@@ -1,5 +1,5 @@
-from vkx.models.base_model import BaseModel, Field
-from vkx.models.objects import DonatorSubscriptionInfo, GroupFull, UserFull
+from ..base_model import BaseModel, Field
+from ..objects import DonatorSubscriptionInfo, GroupFull, UserFull
 
 
 class DonutGetSubscriptionsResponseModel(BaseModel):
@@ -14,7 +14,8 @@ class DonutGetSubscriptionsResponseModel(BaseModel):
         default=None,
     )
 
-from vkx.models.responses.groups import GetMembersFieldsResponseModel
+
+from .groups import GetMembersFieldsResponseModel
 
 __all__ = (
     "DonutGetSubscriptionsResponseModel",

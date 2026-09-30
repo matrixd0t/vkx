@@ -1,4 +1,4 @@
-from vkx.models.base_model import BaseModel, Field
+from ..base_model import BaseModel, Field
 
 
 class GetAppImageUploadServerResponseModel(BaseModel):
@@ -6,10 +6,12 @@ class GetAppImageUploadServerResponseModel(BaseModel):
         default=None,
     )
 
+
 class GetGroupImageUploadServerResponseModel(BaseModel):
     upload_url: str | None = Field(
         default=None,
     )
+
 
 __all__ = (
     "GetAppImageUploadServerResponseModel",

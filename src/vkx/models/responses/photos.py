@@ -1,5 +1,5 @@
-from vkx.models.base_model import BaseModel, Field
-from vkx.models.objects import (
+from ..base_model import BaseModel, Field
+from ..objects import (
     BaseImage,
     GroupFull,
     Photo,
@@ -14,9 +14,11 @@ class PhotosGetAlbumsResponseModel(BaseModel):
     count: int = Field()
     items: list["PhotoAlbumFull"] = Field()
 
+
 class GetAllCommentsResponseModel(BaseModel):
     count: int = Field()
     items: list["WallComment"] = Field()
+
 
 class GetAllResponseModel(BaseModel):
     count: int = Field()
@@ -24,6 +26,7 @@ class GetAllResponseModel(BaseModel):
     more: bool | None = Field(
         default=None,
     )
+
 
 class PhotosGetCommentsExtendedResponseModel(BaseModel):
     count: int = Field()
@@ -34,6 +37,7 @@ class PhotosGetCommentsExtendedResponseModel(BaseModel):
         default=None,
     )
 
+
 class PhotosGetCommentsResponseModel(BaseModel):
     count: int = Field()
     items: list["WallComment"] = Field()
@@ -41,9 +45,11 @@ class PhotosGetCommentsResponseModel(BaseModel):
         default=None,
     )
 
+
 class GetNewTagsResponseModel(BaseModel):
     count: int = Field()
     items: list["PhotoXtrTagInfo"] = Field()
+
 
 class GetUserPhotosResponseModel(BaseModel):
     count: int = Field()
@@ -52,12 +58,14 @@ class GetUserPhotosResponseModel(BaseModel):
         default=None,
     )
 
+
 class PhotosGetResponseModel(BaseModel):
     count: int = Field()
     items: list["Photo"] = Field()
     next_from: str | None = Field(
         default=None,
     )
+
 
 class MarketAlbumUploadResponseModel(BaseModel):
     gid: int | None = Field(
@@ -72,6 +80,7 @@ class MarketAlbumUploadResponseModel(BaseModel):
     server: int | None = Field(
         default=None,
     )
+
 
 class MarketUploadResponseModel(BaseModel):
     crop_data: str | None = Field(
@@ -93,6 +102,7 @@ class MarketUploadResponseModel(BaseModel):
         default=None,
     )
 
+
 class MessageUploadResponseModel(BaseModel):
     hash: str | None = Field(
         default=None,
@@ -104,6 +114,7 @@ class MessageUploadResponseModel(BaseModel):
         default=None,
     )
 
+
 class OwnerCoverUploadResponseModel(BaseModel):
     hash: str | None = Field(
         default=None,
@@ -111,6 +122,7 @@ class OwnerCoverUploadResponseModel(BaseModel):
     photo: str | None = Field(
         default=None,
     )
+
 
 class OwnerUploadResponseModel(BaseModel):
     hash: str | None = Field(
@@ -122,6 +134,7 @@ class OwnerUploadResponseModel(BaseModel):
     server: int | None = Field(
         default=None,
     )
+
 
 class PhotoUploadResponseModel(BaseModel):
     aid: int | None = Field(
@@ -140,10 +153,12 @@ class PhotoUploadResponseModel(BaseModel):
         default=None,
     )
 
+
 class SaveOwnerCoverPhotoResponseModel(BaseModel):
     images: list["BaseImage"] | None = Field(
         default=None,
     )
+
 
 class SaveOwnerPhotoResponseModel(BaseModel):
     photo_hash: str = Field()
@@ -161,9 +176,11 @@ class SaveOwnerPhotoResponseModel(BaseModel):
         default=None,
     )
 
+
 class PhotosSearchResponseModel(BaseModel):
     count: int = Field()
     items: list["Photo"] = Field()
+
 
 class WallUploadResponseModel(BaseModel):
     hash: str | None = Field(
@@ -175,6 +192,7 @@ class WallUploadResponseModel(BaseModel):
     server: int | None = Field(
         default=None,
     )
+
 
 __all__ = (
     "GetAllCommentsResponseModel",

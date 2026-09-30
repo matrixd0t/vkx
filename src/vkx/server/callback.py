@@ -11,12 +11,12 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from vkx.models.events.callback_events import (
+from ..models.events.callback_events import (
     CALLBACK_EVENTS,
     BaseCallbackEvent,
     CallbackEvent,
 )
-from vkx.models.events.enums import CallbackEventType
+from ..models.events.enums import CallbackEventType
 
 type RawCallback = bytes | bytearray | str | dict
 

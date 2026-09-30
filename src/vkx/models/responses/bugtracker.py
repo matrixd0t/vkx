@@ -1,5 +1,5 @@
-from vkx.models.base_model import BaseModel, Field
-from vkx.models.objects import (
+from ..base_model import BaseModel, Field
+from ..objects import (
     AddCompanyGroupsMembersError,
     Bugreport,
     BugreportSubscribeState,
@@ -12,8 +12,10 @@ from vkx.models.objects import (
 class AddCompanyGroupsMembersResponseModel(BaseModel):
     errors: list["AddCompanyGroupsMembersError"] = Field()
 
+
 class AddCompanyMembersResponseModel(BaseModel):
     errors: list[str] = Field()
+
 
 class BugtrackerCreateCommentResponseModel(BaseModel):
     comment: "Comment" = Field()
@@ -24,6 +26,7 @@ class BugtrackerCreateCommentResponseModel(BaseModel):
         default=None,
     )
 
+
 class GetBugreportByIdResponseModel(BaseModel):
     bugreport: "Bugreport | None" = Field(
         default=None,
@@ -32,11 +35,13 @@ class GetBugreportByIdResponseModel(BaseModel):
         default=None,
     )
 
+
 class GetCompanyGroupMembersResponseModel(BaseModel):
     user_ids: list[int] = Field()
     profiles: list["UserFull"] | None = Field(
         default=None,
     )
+
 
 class GetCompanyMembersResponseModel(BaseModel):
     company_members: list["CompanyMember"] = Field()
@@ -44,6 +49,7 @@ class GetCompanyMembersResponseModel(BaseModel):
     profiles: list["UserFull"] | None = Field(
         default=None,
     )
+
 
 class GetDownloadVersionUrlResponseModel(BaseModel):
     url: str = Field()
@@ -62,6 +68,7 @@ class GetDownloadVersionUrlResponseModel(BaseModel):
     build_title: str | None = Field(
         default=None,
     )
+
 
 __all__ = (
     "AddCompanyGroupsMembersResponseModel",

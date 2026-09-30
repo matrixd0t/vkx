@@ -1,5 +1,5 @@
-from vkx.models.base_model import BaseModel, Field
-from vkx.models.objects import (
+from ..base_model import BaseModel, Field
+from ..objects import (
     GlobalSearchFilters,
     GroupFull,
     MarketAlbum,
@@ -25,33 +25,42 @@ class MarketAddAlbumResponseModel(BaseModel):
         default=None,
     )
 
+
 class AddPropertyVariantResponseModel(BaseModel):
     variant_id: int = Field()
+
 
 class AddPropertyResponseModel(BaseModel):
     property_id: int = Field()
 
+
 class MarketAddResponseModel(BaseModel):
     market_item_id: int = Field()
+
 
 class GetAlbumByIdResponseModel(BaseModel):
     count: int = Field()
     items: list["MarketAlbum"] = Field()
 
+
 class MarketGetAlbumsResponseModel(BaseModel):
     count: int = Field()
     items: list["MarketAlbum"] = Field()
+
 
 class MarketGetByIdExtendedResponseModel(BaseModel):
     count: int = Field()
     items: list["MarketItemFull"] = Field()
 
+
 class MarketGetByIdResponseModel(BaseModel):
     count: int = Field()
     items: list["MarketItem"] = Field()
 
+
 class GetCategoriesNewResponseModel(BaseModel):
     items: list["MarketCategoryTree"] = Field()
+
 
 class MarketGetCommentsResponseModel(BaseModel):
     count: int = Field()
@@ -63,24 +72,29 @@ class MarketGetCommentsResponseModel(BaseModel):
         default=None,
     )
 
+
 class GetFavesForAttachResponseModel(BaseModel):
     market_items: list["MarketItem"] = Field()
     next_from: int | None = Field(
         default=None,
     )
 
+
 class GetGroupOrdersResponseModel(BaseModel):
     count: int = Field()
     items: list["MarketOrder"] = Field()
+
 
 class GetOrderByIdResponseModel(BaseModel):
     order: "MarketOrder | None" = Field(
         default=None,
     )
 
+
 class GetOrderItemsResponseModel(BaseModel):
     count: int = Field()
     items: list["OrderItem"] = Field()
+
 
 class GetOrdersExtendedResponseModel(BaseModel):
     count: int = Field()
@@ -89,13 +103,16 @@ class GetOrdersExtendedResponseModel(BaseModel):
         default=None,
     )
 
+
 class GetOrdersResponseModel(BaseModel):
     count: int = Field()
     items: list["MarketOrder"] = Field()
 
+
 class GetPropertiesResponseModel(BaseModel):
     items: list["Property"] = Field()
     count: int = Field()
+
 
 class MarketGetExtendedResponseModel(BaseModel):
     count: int = Field()
@@ -104,6 +121,7 @@ class MarketGetExtendedResponseModel(BaseModel):
         default=None,
     )
 
+
 class MarketGetResponseModel(BaseModel):
     count: int = Field()
     items: list["MarketItem"] = Field()
@@ -111,14 +129,17 @@ class MarketGetResponseModel(BaseModel):
         default=None,
     )
 
+
 class GroupItemsResponseModel(BaseModel):
     item_group_id: int = Field()
+
 
 class PhotoIdResponseModel(BaseModel):
     photo_id: int = Field()
     photo: "Photo | None" = Field(
         default=None,
     )
+
 
 class SearchBasicResponseModel(BaseModel):
     count: int = Field()
@@ -128,6 +149,7 @@ class SearchBasicResponseModel(BaseModel):
         default=None,
     )
 
+
 class MarketSearchExtendedResponseModel(BaseModel):
     count: int = Field()
     view_type: "ServicesViewType" = Field()
@@ -135,6 +157,7 @@ class MarketSearchExtendedResponseModel(BaseModel):
     variants: list["MarketItemFull"] | None = Field(
         default=None,
     )
+
 
 class MarketSearchResponseModel(BaseModel):
     count: int = Field()
@@ -149,6 +172,7 @@ class MarketSearchResponseModel(BaseModel):
     filters: "GlobalSearchFilters | None" = Field(
         default=None,
     )
+
 
 __all__ = (
     "AddPropertyResponseModel",

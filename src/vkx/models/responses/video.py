@@ -1,5 +1,5 @@
-from vkx.models.base_model import BaseModel, Field
-from vkx.models.objects import (
+from ..base_model import BaseModel, Field
+from ..objects import (
     GroupFull,
     StreamInputParams,
     User,
@@ -15,23 +15,28 @@ from vkx.models.objects import (
 class VideoAddAlbumResponseModel(BaseModel):
     album_id: int = Field()
 
+
 class VideoEditResponseModel(BaseModel):
     success: bool = Field()
     access_key: str | None = Field(
         default=None,
     )
 
+
 class GetAlbumsByVideoExtendedResponseModel(BaseModel):
     count: int = Field()
     items: list["VideoAlbumFull"] = Field()
+
 
 class GetAlbumsExtendedResponseModel(BaseModel):
     count: int = Field()
     items: list["VideoAlbumFull"] = Field()
 
+
 class VideoGetAlbumsResponseModel(BaseModel):
     count: int = Field()
     items: list["VideoAlbum"] = Field()
+
 
 class VideoGetCommentsExtendedResponseModel(BaseModel):
     count: int = Field()
@@ -54,6 +59,7 @@ class VideoGetCommentsExtendedResponseModel(BaseModel):
         default=None,
     )
 
+
 class VideoGetCommentsResponseModel(BaseModel):
     count: int = Field()
     items: list["WallComment"] = Field()
@@ -73,8 +79,10 @@ class VideoGetCommentsResponseModel(BaseModel):
         default=None,
     )
 
+
 class GetLongPollServerResponseModel(BaseModel):
     url: str = Field()
+
 
 class GetOembedResponseModel(BaseModel):
     version: str = Field()
@@ -108,8 +116,10 @@ class GetOembedResponseModel(BaseModel):
         default=None,
     )
 
+
 class GetThumbUploadUrlResponseModel(BaseModel):
     upload_url: str = Field()
+
 
 class VideoGetResponseModel(BaseModel):
     count: int = Field()
@@ -124,6 +134,7 @@ class VideoGetResponseModel(BaseModel):
         default=None,
     )
 
+
 class SaveUploadedThumbResponseModel(BaseModel):
     photo_id: int = Field()
     photo_hash: str = Field()
@@ -134,15 +145,18 @@ class SaveUploadedThumbResponseModel(BaseModel):
         default=None,
     )
 
+
 class VideoSearchExtendedResponseModel(BaseModel):
     count: int = Field()
     items: list["VideoFull"] = Field()
     profiles: list["User"] = Field()
     groups: list["GroupFull"] = Field()
 
+
 class VideoSearchResponseModel(BaseModel):
     count: int = Field()
     items: list["VideoFull"] = Field()
+
 
 class StartStreamingResponseModel(BaseModel):
     owner_id: int = Field()
@@ -155,10 +169,12 @@ class StartStreamingResponseModel(BaseModel):
         default=None,
     )
 
+
 class StopStreamingResponseModel(BaseModel):
     unique_viewers: int | None = Field(
         default=None,
     )
+
 
 class VideoUploadResponseModel(BaseModel):
     size: int | None = Field(
@@ -167,6 +183,7 @@ class VideoUploadResponseModel(BaseModel):
     video_id: int | None = Field(
         default=None,
     )
+
 
 __all__ = (
     "GetAlbumsByVideoExtendedResponseModel",

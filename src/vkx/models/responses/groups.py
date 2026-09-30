@@ -1,7 +1,7 @@
 import datetime
 
-from vkx.models.base_model import BaseModel, Field
-from vkx.models.objects import (
+from ..base_model import BaseModel, Field
+from ..objects import (
     Address,
     CallbackServer,
     GroupAccess,
@@ -36,13 +36,16 @@ from vkx.models.objects import (
 class AddCallbackServerResponseModel(BaseModel):
     server_id: int = Field()
 
+
 class GetAddressesResponseModel(BaseModel):
     count: int = Field()
     items: list["Address"] = Field()
 
+
 class GroupsGetBannedResponseModel(BaseModel):
     count: int = Field()
     items: list["OwnerXtrBanInfo"] = Field()
+
 
 class GetByIdObjectResponseModel(BaseModel):
     groups: list["GroupFull"] | None = Field(
@@ -52,12 +55,15 @@ class GetByIdObjectResponseModel(BaseModel):
         default=None,
     )
 
+
 class GetCallbackConfirmationCodeResponseModel(BaseModel):
     code: str = Field()
+
 
 class GetCallbackServersResponseModel(BaseModel):
     count: int = Field()
     items: list["CallbackServer"] = Field()
+
 
 class GetCatalogInfoExtendedResponseModel(BaseModel):
     enabled: bool = Field()
@@ -65,15 +71,18 @@ class GetCatalogInfoExtendedResponseModel(BaseModel):
         default=None,
     )
 
+
 class GetCatalogInfoResponseModel(BaseModel):
     enabled: bool = Field()
     categories: list["GroupCategory"] | None = Field(
         default=None,
     )
 
+
 class GetInvitedUsersResponseModel(BaseModel):
     count: int = Field()
     items: list["UserFull"] = Field()
+
 
 class GetInvitesExtendedResponseModel(BaseModel):
     count: int = Field()
@@ -81,9 +90,11 @@ class GetInvitesExtendedResponseModel(BaseModel):
     profiles: list["UserMin"] = Field()
     groups: list["GroupFull"] = Field()
 
+
 class GetInvitesResponseModel(BaseModel):
     count: int = Field()
     items: list["GroupFull"] = Field()
+
 
 class GetMembersFieldsResponseModel(BaseModel):
     count: int = Field()
@@ -92,12 +103,14 @@ class GetMembersFieldsResponseModel(BaseModel):
         default=None,
     )
 
+
 class GetMembersFilterResponseModel(BaseModel):
     count: int = Field()
     items: list["MemberRole"] = Field()
     next_from: str | None = Field(
         default=None,
     )
+
 
 class GetMembersResponseModel(BaseModel):
     count: int = Field()
@@ -106,19 +119,23 @@ class GetMembersResponseModel(BaseModel):
         default=None,
     )
 
+
 class GetOnlineStatusResponseModel(BaseModel):
     status: "OnlineStatusType" = Field()
     minutes: int | None = Field(
         default=None,
     )
 
+
 class GetRequestsFieldsResponseModel(BaseModel):
     count: int = Field()
     items: list["UserFull"] = Field()
 
+
 class GroupsGetRequestsResponseModel(BaseModel):
     count: int = Field()
     items: list[int] = Field()
+
 
 class GetSettingsResponseModel(BaseModel):
     audio: "GroupAudio" = Field()
@@ -232,20 +249,25 @@ class GetSettingsResponseModel(BaseModel):
         default=None,
     )
 
+
 class GetTokenPermissionsResponseModel(BaseModel):
     mask: int = Field()
     permissions: list["TokenPermissionSetting"] = Field()
+
 
 class GetObjectExtendedResponseModel(BaseModel):
     count: int = Field()
     items: list["GroupFull"] = Field()
 
+
 class GroupsGetResponseModel(BaseModel):
     count: int = Field()
     items: list[int] = Field()
 
+
 class InviteUserIdsListResponseModel(BaseModel):
     invites_send_count: int = Field()
+
 
 class IsMemberExtendedResponseModel(BaseModel):
     member: bool = Field()
@@ -262,17 +284,21 @@ class IsMemberExtendedResponseModel(BaseModel):
         default=None,
     )
 
+
 class GroupsSearchResponseModel(BaseModel):
     count: int = Field()
     items: list["GroupFull"] = Field()
+
 
 class GetMembersFilterManagersResponseModel(BaseModel):
     count: int | None = None
     items: list[MemberRole] | None = None
 
+
 class GetMembersFieldsFilterManagersResponseModel(BaseModel):
     count: int | None = None
     items: list[UserXtrRole] | None = None
+
 
 __all__ = (
     "AddCallbackServerResponseModel",

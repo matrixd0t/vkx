@@ -1,5 +1,5 @@
-from vkx.models.base_model import BaseModel, Field
-from vkx.models.objects import (
+from ..base_model import BaseModel, Field
+from ..objects import (
     App,
     Group,
     NotificationItem,
@@ -36,6 +36,7 @@ class NotificationsGetResponseModel(BaseModel):
     ttl: int | None = Field(
         default=None,
     )
+
 
 __all__ = (
     "NotificationsGetResponseModel",

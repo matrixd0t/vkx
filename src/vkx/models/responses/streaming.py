@@ -1,4 +1,4 @@
-from vkx.models.base_model import BaseModel, Field
+from ..base_model import BaseModel, Field
 
 
 class GetServerUrlResponseModel(BaseModel):
@@ -9,10 +9,12 @@ class GetServerUrlResponseModel(BaseModel):
         default=None,
     )
 
+
 class GetStemResponseModel(BaseModel):
     stem: str | None = Field(
         default=None,
     )
+
 
 __all__ = (
     "GetServerUrlResponseModel",

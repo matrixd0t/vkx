@@ -33,14 +33,13 @@ from typing import TYPE_CHECKING, Any
 from .http import HttpClient
 
 if TYPE_CHECKING:
-    from vkx.models.objects import Photo
-    from vkx.models.responses.docs import DocsSaveResponseModel
-    from vkx.models.responses.messages import SetChatPhotoResponseModel
-    from vkx.models.responses.photos import (
+    from ..models.objects import Photo
+    from ..models.responses.docs import DocsSaveResponseModel
+    from ..models.responses.messages import SetChatPhotoResponseModel
+    from ..models.responses.photos import (
         SaveOwnerCoverPhotoResponseModel,
         SaveOwnerPhotoResponseModel,
     )
-
     from .client import VKClient
 
 PHOTO_FILENAME = "photo.jpg"

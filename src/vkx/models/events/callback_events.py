@@ -2,8 +2,7 @@ from typing import Any, Literal
 
 import pydantic
 
-from vkx.models.base_model import BaseModel
-
+from ..base_model import BaseModel
 from .enums import CallbackEventType
 from .objects import group_event_objects as go
 

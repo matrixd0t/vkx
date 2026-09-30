@@ -1,5 +1,5 @@
-from vkx.models.base_model import BaseModel, Field
-from vkx.models.objects import (
+from ..base_model import BaseModel, Field
+from ..objects import (
     FeedItem,
     GroupFull,
     Story,
@@ -15,9 +15,11 @@ class StoriesGetBannedExtendedResponseModel(BaseModel):
     profiles: list["UserFull"] = Field()
     groups: list["GroupFull"] = Field()
 
+
 class StoriesGetBannedResponseModel(BaseModel):
     count: int = Field()
     items: list[int] = Field()
+
 
 class StoriesGetByIdExtendedResponseModel(BaseModel):
     count: int = Field()
@@ -25,13 +27,16 @@ class StoriesGetByIdExtendedResponseModel(BaseModel):
     profiles: list["UserFull"] = Field()
     groups: list["GroupFull"] = Field()
 
+
 class GetPhotoUploadServerResponseModel(BaseModel):
     upload_url: str = Field()
     user_ids: list[int] = Field()
 
+
 class GetVideoUploadServerResponseModel(BaseModel):
     upload_url: str = Field()
     user_ids: list[int] = Field()
+
 
 class GetViewersExtendedV5115ResponseModel(BaseModel):
     count: int = Field()
@@ -42,6 +47,7 @@ class GetViewersExtendedV5115ResponseModel(BaseModel):
     next_from: str | None = Field(
         default=None,
     )
+
 
 class GetV5113ResponseModel(BaseModel):
     count: int = Field()
@@ -62,6 +68,7 @@ class GetV5113ResponseModel(BaseModel):
         default=None,
     )
 
+
 class StoriesSaveResponseModel(BaseModel):
     count: int = Field()
     items: list["Story"] = Field()
@@ -72,10 +79,12 @@ class StoriesSaveResponseModel(BaseModel):
         default=None,
     )
 
+
 class StoriesUploadResponseModel(BaseModel):
     upload_result: str | None = Field(
         default=None,
     )
+
 
 __all__ = (
     "GetPhotoUploadServerResponseModel",

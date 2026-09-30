@@ -1,10 +1,6 @@
-
-from vkx.models.methods.base_category import BaseCategory
-from vkx.models.objects import *
-from vkx.models.responses.base import (
-    OkResponseModel,
-)
-from vkx.models.responses.calls import *  # type: ignore
+from ..responses.base import OkResponseModel
+from ..responses.calls import *  # type: ignore
+from .base_category import BaseCategory
 
 
 class CallsCategory(BaseCategory):

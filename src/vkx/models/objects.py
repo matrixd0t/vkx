@@ -1,7 +1,10 @@
 import datetime
+import json
 import typing
 
-from vkx.models.base_model import (
+import pydantic
+
+from .base_model import (
     BaseEnumMeta,
     BaseModel,
     Field,
@@ -2965,24 +2968,88 @@ class HistoryMessageAttachmentType(StrEnum, metaclass=BaseEnumMeta):
     AUDIO_MESSAGE = "audio_message"
 
 
+def _dump_button_payload(value: typing.Any) -> str | None:
+    """Привести payload кнопки к строке: dict/список -> компактный JSON, str — как есть."""
+    if value is None or isinstance(value, str):
+        return value
+    return json.dumps(value, ensure_ascii=False, separators=(",", ":"))
+
+
+ButtonPayload = typing.Annotated[str | None, pydantic.BeforeValidator(_dump_button_payload)]
+"""Payload кнопки: принимается dict/список/str, хранится JSON-строкой."""
+
+KEYBOARD_MAX_BUTTONS_ON_ROW: typing.Final = 5
+KEYBOARD_MAX_ROWS_DEFAULT: typing.Final = 10
+KEYBOARD_MAX_ROWS_INLINE: typing.Final = 6
+
+
 class Keyboard(BaseModel):
-    """Model: `Keyboard`"""
+    """Клавиатура VK: разбор входящих и сборка исходящих. Неизменяема.
 
-    one_time: bool = Field()
-    """Should this keyboard disappear on first use."""
+    При сборке ``inline`` по умолчанию ``True``; для отправки —
+    ``keyboard=keyboard.to_json()``. Для обычной (чатовой) клавиатуры
+    передайте ``inline=False``.
+    """
 
-    buttons: list[list["KeyboardButton"]] = Field()
-    """Property `Keyboard.buttons`."""
+    buttons: list[list["KeyboardButton"]] = Field(default_factory=list)
+    """Ряды кнопок (не более 5 кнопок в ряду)."""
 
-    author_id: int | None = Field(
-        default=None,
-    )
-    """Community or bot, which set this keyboard."""
+    one_time: bool = Field(default=False)
+    """Скрыть клавиатуру после первого нажатия."""
 
-    inline: bool | None = Field(
-        default=None,
-    )
-    """Property `Keyboard.inline`."""
+    inline: bool | None = Field(default=None)
+    """Inline-клавиатура; при сборке по умолчанию ``True``."""
+
+    author_id: int | None = Field(default=None)
+    """Сообщество/бот, установившие клавиатуру (только для входящих)."""
+
+    def __init__(
+            self,
+            buttons: list[list["KeyboardButton"]] | None = None,
+            *,
+            one_time: bool = False,
+            inline: bool = True,
+            author_id: int | None = None,
+            **kwargs: typing.Any,
+    ) -> None:
+        super().__init__(
+            buttons=[] if buttons is None else buttons,
+            one_time=one_time,
+            inline=inline,
+            author_id=author_id,
+            **kwargs,
+        )
+
+    @classmethod
+    def from_rows(
+            cls,
+            rows: list[list["KeyboardButton"]],
+            /,
+            *,
+            one_time: bool = False,
+            inline: bool = True,
+    ) -> typing.Self:
+        """Собрать клавиатуру из рядов: ``Keyboard.from_rows([[b1, b2], [b3]])``."""
+        return cls(rows, one_time=one_time, inline=inline)
+
+    @pydantic.model_validator(mode="after")
+    def _check_limits(self) -> typing.Self:
+        max_rows = KEYBOARD_MAX_ROWS_INLINE if self.inline else KEYBOARD_MAX_ROWS_DEFAULT
+        if len(self.buttons) > max_rows:
+            kind = "inline" if self.inline else "обычной"
+            raise ValueError(f"клавиатура: не больше {max_rows} рядов для {kind} клавиатуры")
+        for index, row in enumerate(self.buttons):
+            if not row:
+                raise ValueError(f"клавиатура: ряд {index} пустой")
+            if len(row) > KEYBOARD_MAX_BUTTONS_ON_ROW:
+                raise ValueError(
+                    f"клавиатура: в ряду {index} больше {KEYBOARD_MAX_BUTTONS_ON_ROW} кнопок"
+                )
+        return self
+
+    def to_json(self) -> str:
+        """Строка для параметра ``keyboard`` (компактная, без ``None``)."""
+        return self.to_raw(exclude_none=True, exclude={"author_id"})
 
 
 class KeyboardButtonColor(StrEnum, metaclass=BaseEnumMeta):
@@ -2993,15 +3060,99 @@ class KeyboardButtonColor(StrEnum, metaclass=BaseEnumMeta):
 
 
 class KeyboardButton(BaseModel):
-    """Model: `KeyboardButton`"""
+    """Кнопка клавиатуры. Неизменяема.
 
-    action: "KeyboardButtonPropertyAction" = Field()
-    """Property `KeyboardButton.action`."""
+    Обычно собирается фабриками: ``KeyboardButton.callback(...)``,
+    ``.text(...)``, ``.link(...)``, ``.location(...)``, ``.vkpay(...)``,
+    ``.open_app(...)``, ``.open_photo(...)`` — либо через ``Button(...)``.
+    При разборе действие выбирается по ``type``; неизвестные типы
+    сохраняются как есть в ``KeyboardButtonPropertyAction``.
+    """
 
-    color: "KeyboardButtonColor | None" = Field(
-        default=None,
-    )
-    """Button color."""
+    action: "ButtonAction" = Field()
+    """Описание действия кнопки."""
+
+    color: "KeyboardButtonColor | None" = Field(default=None)
+    """Цвет кнопки."""
+
+    @pydantic.model_validator(mode="before")
+    @classmethod
+    def _dispatch_action(cls, data: typing.Any) -> typing.Any:
+        if isinstance(data, dict):
+            action = data.get("action")
+            if isinstance(action, dict):
+                model = BUTTON_ACTION_MODELS.get(str(action.get("type")), KeyboardButtonPropertyAction)
+                data = {**data, "action": model(**action)}
+        return data
+
+    @classmethod
+    def callback(cls, label: str, payload: typing.Any = None, *, color: "KeyboardButtonColor | None" = None) -> typing.Self:
+        """Callback-кнопка: нажатие приходит событием, сообщение не отправляется."""
+        return cls(action=KeyboardButtonActionCallback(label=label, payload=payload), color=color)
+
+    @classmethod
+    def text(cls, label: str, payload: typing.Any = None, *, color: "KeyboardButtonColor | None" = None) -> typing.Self:
+        """Текстовая кнопка: по нажатию отправляет текст как сообщение."""
+        return cls(action=KeyboardButtonActionText(label=label, payload=payload), color=color)
+
+    @classmethod
+    def link(cls, label: str, link: str, *, payload: typing.Any = None, color: "KeyboardButtonColor | None" = None) -> typing.Self:
+        """Кнопка-ссылка."""
+        return cls(action=KeyboardButtonActionOpenLink(label=label, link=link, payload=payload), color=color)
+
+    @classmethod
+    def location(cls, payload: typing.Any = None, *, color: "KeyboardButtonColor | None" = None) -> typing.Self:
+        """Кнопка отправки геолокации (занимает весь ряд)."""
+        return cls(action=KeyboardButtonActionLocation(payload=payload), color=color)
+
+    @classmethod
+    def vkpay(cls, hash: str, *, payload: typing.Any = None, color: "KeyboardButtonColor | None" = None) -> typing.Self:
+        """Кнопка оплаты через VK Pay (занимает весь ряд)."""
+        return cls(action=KeyboardButtonActionVkpay(hash=hash, payload=payload), color=color)
+
+    @classmethod
+    def open_app(
+            cls,
+            app_id: int,
+            owner_id: int,
+            label: str,
+            *,
+            hash: str | None = None,
+            payload: typing.Any = None,
+            color: "KeyboardButtonColor | None" = None,
+    ) -> typing.Self:
+        """Кнопка запуска VK Mini App (занимает весь ряд)."""
+        return cls(
+            action=KeyboardButtonActionOpenApp(app_id=app_id, owner_id=owner_id, label=label, hash=hash, payload=payload),
+            color=color,
+        )
+
+    @classmethod
+    def open_photo(cls, *, color: "KeyboardButtonColor | None" = None) -> typing.Self:
+        """Кнопка открытия фото."""
+        return cls(action=KeyboardButtonActionOpenPhoto(), color=color)
+
+
+class Button(KeyboardButton):
+    """Кнопка с удобным конструктором. Тип по умолчанию — ``callback``.
+
+    ``Button("Да", payload={"cmd": "yes"})``; остальные типы через ``type=``:
+    ``Button("Сайт", type="open_link", link="https://vk.com")``.
+    """
+
+    def __init__(
+            self,
+            label: str | None = None,
+            *,
+            type: str = "callback",
+            payload: typing.Any = None,
+            color: "KeyboardButtonColor | None" = None,
+            action: "ButtonAction | None" = None,
+            **fields: typing.Any,
+    ) -> None:
+        if action is None:
+            action = BUTTON_ACTION_MODELS[str(type)](label=label, payload=payload, **fields)
+        super().__init__(action=action, color=color)
 
 
 class KeyboardButtonActionCallbackType(StrEnum, metaclass=BaseEnumMeta):
@@ -3016,12 +3167,10 @@ class KeyboardButtonActionCallback(BaseModel):
     label: str = Field()
     """Label for button."""
 
-    type: "KeyboardButtonActionCallbackType" = Field()
+    type: "KeyboardButtonActionCallbackType" = Field(default=KeyboardButtonActionCallbackType.CALLBACK)
     """Property `KeyboardButtonActionCallback.type`."""
 
-    payload: str | None = Field(
-        default=None,
-    )
+    payload: ButtonPayload = Field(default=None)
     """Additional data sent along with message for developer convenience."""
 
 
@@ -3034,12 +3183,10 @@ class KeyboardButtonActionLocation(BaseModel):
     Model: `KeyboardButtonActionLocation`
     """
 
-    type: "KeyboardButtonActionLocationType" = Field()
+    type: "KeyboardButtonActionLocationType" = Field(default=KeyboardButtonActionLocationType.LOCATION)
     """Property `KeyboardButtonActionLocation.type`."""
 
-    payload: str | None = Field(
-        default=None,
-    )
+    payload: ButtonPayload = Field(default=None)
     """Additional data sent along with message for developer convenience."""
 
 
@@ -3061,17 +3208,13 @@ class KeyboardButtonActionOpenApp(BaseModel):
     owner_id: int = Field()
     """Fragment value in app link like vk.com/app123456_{owner_id}#hash."""
 
-    type: "KeyboardButtonActionOpenAppType" = Field()
+    type: "KeyboardButtonActionOpenAppType" = Field(default=KeyboardButtonActionOpenAppType.OPEN_APP)
     """Property `KeyboardButtonActionOpenApp.type`."""
 
-    hash: str | None = Field(
-        default=None,
-    )
+    hash: str | None = Field(default=None)
     """Fragment value in app link like vk.com/app123456_-654321#{hash}."""
 
-    payload: str | None = Field(
-        default=None,
-    )
+    payload: ButtonPayload = Field(default=None)
     """Additional data sent along with message for developer convenience."""
 
 
@@ -3090,12 +3233,10 @@ class KeyboardButtonActionOpenLink(BaseModel):
     link: str = Field()
     """link for button."""
 
-    type: "KeyboardButtonActionOpenLinkType" = Field()
+    type: "KeyboardButtonActionOpenLinkType" = Field(default=KeyboardButtonActionOpenLinkType.OPEN_LINK)
     """Property `KeyboardButtonActionOpenLink.type`."""
 
-    payload: str | None = Field(
-        default=None,
-    )
+    payload: ButtonPayload = Field(default=None)
     """Additional data sent along with message for developer convenience."""
 
 
@@ -3108,7 +3249,7 @@ class KeyboardButtonActionOpenPhoto(BaseModel):
     Model: `KeyboardButtonActionOpenPhoto`
     """
 
-    type: "KeyboardButtonActionOpenPhotoType" = Field()
+    type: "KeyboardButtonActionOpenPhotoType" = Field(default=KeyboardButtonActionOpenPhotoType.OPEN_PHOTO)
     """Property `KeyboardButtonActionOpenPhoto.type`."""
 
 
@@ -3124,12 +3265,10 @@ class KeyboardButtonActionText(BaseModel):
     label: str = Field()
     """Label for button."""
 
-    type: "KeyboardButtonActionTextType" = Field()
+    type: "KeyboardButtonActionTextType" = Field(default=KeyboardButtonActionTextType.TEXT)
     """Property `KeyboardButtonActionText.type`."""
 
-    payload: str | None = Field(
-        default=None,
-    )
+    payload: ButtonPayload = Field(default=None)
     """Additional data sent along with message for developer convenience."""
 
 
@@ -3145,20 +3284,45 @@ class KeyboardButtonActionVkpay(BaseModel):
     hash: str = Field()
     """Fragment value in app link like vk.com/app123456_-654321#{hash}."""
 
-    type: "KeyboardButtonActionVkpayType" = Field()
+    type: "KeyboardButtonActionVkpayType" = Field(default=KeyboardButtonActionVkpayType.VKPAY)
     """Property `KeyboardButtonActionVkpay.type`."""
 
-    payload: str | None = Field(
-        default=None,
-    )
+    payload: ButtonPayload = Field(default=None)
     """Additional data sent along with message for developer convenience."""
 
 
 class KeyboardButtonPropertyAction(BaseModel):
-    """Model: `KeyboardButtonPropertyAction`"""
-    label: 'str' = Field()
-    type: 'str' = Field()
-    payload: 'str' = Field()
+    """Fallback-действие: сохраняет неизвестные типы (``start``, ``open_modal_view``, ...)."""
+
+    model_config = pydantic.ConfigDict(frozen=True, extra="allow", defer_build=True)
+
+    label: str | None = Field(default=None)
+    type: str = Field()
+    payload: ButtonPayload = Field(default=None)
+
+
+ButtonAction = (
+        KeyboardButtonActionCallback
+        | KeyboardButtonActionText
+        | KeyboardButtonActionLocation
+        | KeyboardButtonActionOpenLink
+        | KeyboardButtonActionOpenApp
+        | KeyboardButtonActionOpenPhoto
+        | KeyboardButtonActionVkpay
+        | KeyboardButtonPropertyAction
+)
+"""Действие кнопки: типизированный union с fallback на неизвестные типы."""
+
+BUTTON_ACTION_MODELS: dict[str, type[BaseModel]] = {
+    "callback": KeyboardButtonActionCallback,
+    "text": KeyboardButtonActionText,
+    "location": KeyboardButtonActionLocation,
+    "open_link": KeyboardButtonActionOpenLink,
+    "open_app": KeyboardButtonActionOpenApp,
+    "open_photo": KeyboardButtonActionOpenPhoto,
+    "vkpay": KeyboardButtonActionVkpay,
+}
+"""Соответствие ``type`` кнопки и её модели действия (для разбора)."""
 
 
 class LastActivity(BaseModel):
@@ -13898,7 +14062,6 @@ class Period(BaseModel):
 
 type StatsPeriodFromOneOf = datetime.datetime
 
-
 type StatsPeriodToOneOf = datetime.datetime
 
 
@@ -18859,7 +19022,9 @@ __all__ = (
     "BoolInt",
     "Bugreport",
     "BugreportSubscribeState",
+    "ButtonAction",
     "ButtonOneOf",
+    "ButtonPayload",
     "CallbackAppPayload",
     "CallbackAudioNew",
     "CallbackBoardPostDelete",
@@ -19515,11 +19680,10 @@ __all__ = (
     "WikipageHistory",
 )
 
-
 import datetime
 from typing import TYPE_CHECKING
 
-from vkx.models.base_model import BaseEnumMeta, BaseModel, Field, StrEnum
+from .base_model import BaseEnumMeta, BaseModel, Field, StrEnum
 
 
 class MessageActionStatus(StrEnum, metaclass=BaseEnumMeta):
@@ -19649,9 +19813,6 @@ class LinkPhoto(Photo):
     date: datetime.datetime | None = None
 
 
-    
-
-
 class PrettyCardsList(BaseModel):
     cards: PrettyCard | None = None
 
@@ -19672,7 +19833,6 @@ class SendUserIdsResponseItem(BaseModel):
     error: MessageError | None = None
     message_id: int | None
     peer_id: int
-
 
     # NOTE: Add `narrative` field. Now, we've no docs and schema about this attachment.
 
@@ -19707,7 +19867,6 @@ class ClientInfoForBots(BaseModel):
 
 
 type SubscriptionsItem = GroupFull | UserFull
-
 
 if not TYPE_CHECKING:
 

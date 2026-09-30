@@ -1,5 +1,5 @@
-from vkx.models.base_model import BaseModel, Field
-from vkx.models.objects import Hint
+from ..base_model import BaseModel, Field
+from ..objects import Hint
 
 
 class GetHintsResponseModel(BaseModel):
@@ -8,6 +8,7 @@ class GetHintsResponseModel(BaseModel):
     suggested_queries: list[str] | None = Field(
         default=None,
     )
+
 
 __all__ = (
     "GetHintsResponseModel",

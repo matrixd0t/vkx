@@ -41,7 +41,7 @@ from .wall import *
 from .widgets import *
 
 if not typing.TYPE_CHECKING:
-    from vkx.models import objects
+    from .. import objects
 
     localns = locals().copy()
     types_namespace = vars(objects) | localns

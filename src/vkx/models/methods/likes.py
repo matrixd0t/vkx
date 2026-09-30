@@ -1,8 +1,8 @@
 import typing
 
-from vkx.models.methods.base_category import BaseCategory
-from vkx.models.objects import *
-from vkx.models.responses.likes import *  # type: ignore
+from ..objects import *
+from ..responses.likes import *  # type: ignore
+from .base_category import BaseCategory
 
 
 class LikesCategory(BaseCategory):

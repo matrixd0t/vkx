@@ -1,5 +1,5 @@
-from vkx.models.base_model import BaseModel, Field
-from vkx.models.objects import (
+from ..base_model import BaseModel, Field
+from ..objects import (
     CommentsItem,
     GroupFull,
     ListFull,
@@ -19,6 +19,7 @@ class GenericResponseModel(BaseModel):
         default=None,
     )
 
+
 class NewsfeedGetBannedExtendedResponseModel(BaseModel):
     profiles: list["UserFull"] | None = Field(
         default=None,
@@ -26,6 +27,7 @@ class NewsfeedGetBannedExtendedResponseModel(BaseModel):
     groups: list["GroupFull"] | None = Field(
         default=None,
     )
+
 
 class NewsfeedGetBannedResponseModel(BaseModel):
     groups: list[int] | None = Field(
@@ -35,6 +37,7 @@ class NewsfeedGetBannedResponseModel(BaseModel):
         default=None,
     )
 
+
 class NewsfeedGetCommentsResponseModel(BaseModel):
     items: list["CommentsItem"] = Field()
     profiles: list["UserFull"] = Field()
@@ -43,24 +46,30 @@ class NewsfeedGetCommentsResponseModel(BaseModel):
         default=None,
     )
 
+
 class GetListsExtendedResponseModel(BaseModel):
     count: int = Field()
     items: list["ListFull"] = Field()
+
 
 class NewsfeedGetListsResponseModel(BaseModel):
     count: int = Field()
     items: list["NewsfeedList"] = Field()
 
+
 class GetMentionsResponseModel(BaseModel):
     count: int = Field()
     items: list["WallpostFull"] = Field()
+
 
 class GetSuggestedSourcesResponseModel(BaseModel):
     count: int = Field()
     items: list["SubscriptionsItem"] = Field()
 
+
 class IgnoreItemResponseModel(BaseModel):
     status: bool = Field(default=1)
+
 
 class NewsfeedSearchExtendedResponseModel(BaseModel):
     items: list["WallpostFull"] = Field()
@@ -81,6 +90,7 @@ class NewsfeedSearchExtendedResponseModel(BaseModel):
         default=None,
     )
 
+
 class SearchExtendedStrictResponseModel(BaseModel):
     items: list["WallpostFull"] = Field()
     count: int = Field()
@@ -100,6 +110,7 @@ class SearchExtendedStrictResponseModel(BaseModel):
         default=None,
     )
 
+
 class NewsfeedSearchResponseModel(BaseModel):
     items: list["WallpostFull"] = Field()
     count: int = Field()
@@ -113,6 +124,7 @@ class NewsfeedSearchResponseModel(BaseModel):
         default=None,
     )
 
+
 class SearchStrictResponseModel(BaseModel):
     items: list["WallpostFull"] = Field()
     count: int = Field()
@@ -125,6 +137,7 @@ class SearchStrictResponseModel(BaseModel):
     total_count: int | None = Field(
         default=None,
     )
+
 
 __all__ = (
     "GenericResponseModel",

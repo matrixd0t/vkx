@@ -47,8 +47,7 @@ from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from typing import Any, Self
 
-from vkx.models.categories import APICategories
-
+from ..models.categories import APICategories
 from . import pagination
 from .http import API_HOST, API_VERSION, HttpClient, create_http_client
 from .storage import Store
