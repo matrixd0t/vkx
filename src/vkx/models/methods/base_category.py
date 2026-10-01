@@ -11,7 +11,11 @@ import typing
 
 import pydantic
 
+from ..base_model import attachment_to_string
+
 Model = typing.TypeVar("Model")
+
+_ATTACHMENT_KEYS: typing.Final = ("attachment", "attachments")
 
 
 @functools.cache
@@ -26,12 +30,24 @@ class BaseCategory:
 
     @staticmethod
     def _clean(params: dict[str, typing.Any]) -> dict[str, typing.Any]:
-        """Готовит параметры метода к отправке: убирает self/None, bool -> int, снимает '_'."""
-        return {
-            k.removeprefix("_"): int(v) if isinstance(v, bool) else v
-            for k, v in params.items()
-            if k != "self" and k != "kwargs" and v is not None
-        }
+        """Готовит параметры метода к отправке.
+
+        Убирает self/None, bool -> int, снимает '_'; вложения (объекты с ``.as_att``
+        и их списки) сворачивает в строку VK.
+        """
+        clean: dict[str, typing.Any] = {}
+        for key, value in params.items():
+            if key in ("self", "kwargs") or value is None:
+                continue
+            name = key.removeprefix("_")
+            if name in _ATTACHMENT_KEYS:
+                value = attachment_to_string(value)
+                if not value:
+                    continue
+            elif isinstance(value, bool):
+                value = int(value)
+            clean[name] = value
+        return clean
 
     @classmethod
     def get_set_params(cls, params: dict[str, typing.Any]) -> dict[str, typing.Any]:

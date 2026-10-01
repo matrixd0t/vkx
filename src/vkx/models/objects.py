@@ -5,6 +5,9 @@ import typing
 import pydantic
 
 from .base_model import (
+    AttachmentInput,
+    AttachmentLike,
+    AttachmentsInput,
     BaseEnumMeta,
     BaseModel,
     Field,
@@ -19003,7 +19006,10 @@ __all__ = (
     "AppWidgetsPhoto",
     "AttachedNote",
     "Attachment",
+    "AttachmentInput",
+    "AttachmentLike",
     "AttachmentType",
+    "AttachmentsInput",
     "Audio",
     "AudioMessage",
     "Background",
@@ -19873,7 +19879,12 @@ if not TYPE_CHECKING:
 
     localns = locals().copy()
     types_namespace = dict(globals()) | localns
-    alls = {"SubscriptionsItem"}
+    alls = {
+        "AttachmentInput",
+        "AttachmentLike",
+        "AttachmentsInput",
+        "SubscriptionsItem",
+    }
 
     for item_name, item in localns.items():
         if issubclass(type(item), BaseEnumMeta):

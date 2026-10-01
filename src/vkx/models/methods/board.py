@@ -11,7 +11,7 @@ class BoardCategory(BaseCategory):
         self,
         group_id: int,
         title: str,
-        attachments: list[str] | None = None,
+        attachments: AttachmentsInput | None = None,
         from_group: bool | None = None,
         text: str | None = None,
     ) -> int:
@@ -43,7 +43,7 @@ class BoardCategory(BaseCategory):
         self,
         group_id: int,
         topic_id: int,
-        attachments: list[str] | None = None,
+        attachments: AttachmentsInput | None = None,
         from_group: bool | None = None,
         guid: str | None = None,
         message: str | None = None,
@@ -95,7 +95,7 @@ class BoardCategory(BaseCategory):
         comment_id: int,
         group_id: int,
         topic_id: int,
-        attachments: list[str] | None = None,
+        attachments: AttachmentsInput | None = None,
         message: str | None = None,
     ) -> OkResponseModel:
         """Method `board.editComment()`

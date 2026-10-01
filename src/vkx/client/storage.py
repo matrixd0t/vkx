@@ -6,8 +6,7 @@
 token_expires — срок токена, user_id — владелец-пользователь, group_id —
 владелец-сообщество).
 
-Реализации Store: SQLiteStore (по умолчанию, CWD/.vkx/vkx.sqlite), JSONStore,
-MemoryStore. Старая kv-схема мигрирует автоматически при открытии SQLiteStore.
+Реализации Store: SQLiteStore (по умолчанию, CWD/.vkx/vkx.sqlite), JSONStore, MemoryStore.
 """
 
 from __future__ import annotations

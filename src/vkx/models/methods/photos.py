@@ -64,7 +64,7 @@ class PhotosCategory(BaseCategory):
         self,
         photo_id: int,
         access_key: str | None = None,
-        attachments: list[str] | None = None,
+        attachments: AttachmentsInput | None = None,
         from_group: bool | None = None,
         guid: str | None = None,
         message: str | None = None,
@@ -181,7 +181,7 @@ class PhotosCategory(BaseCategory):
     async def edit_comment(
         self,
         comment_id: int,
-        attachments: list[str] | None = None,
+        attachments: AttachmentsInput | None = None,
         message: str | None = None,
         owner_id: int | None = None,
     ) -> OkResponseModel:

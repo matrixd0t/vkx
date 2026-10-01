@@ -136,11 +136,26 @@ def _retry_after_header(response: Any) -> float | None:
         return None
 
 
+_ATTACHMENT_KEYS = ("attachment", "attachments")
+
+
+def _resolve_attachment(value: Any) -> Any:
+    """Разворачивает объект с ``.as_att`` в строку-вложение (иначе возвращает как есть)."""
+    as_att = getattr(value, "as_att", None)
+    if as_att is None:
+        return value
+    resolved = as_att() if callable(as_att) else as_att
+    return "" if resolved is None else resolved
+
+
 def _stringify(value: Any) -> str:
     if isinstance(value, bool):
         return "1" if value else "0"
     if isinstance(value, (list, tuple, set)):
         return ",".join(_stringify(item) for item in value)
+    value = _resolve_attachment(value)
+    if value == "":
+        return ""
     return str(value)
 
 
@@ -150,7 +165,10 @@ def _vkscript_call(method: str, params: dict[str, Any]) -> str:
     for key, value in params.items():
         if value is None:
             continue
-        if isinstance(value, bool):
+        value = _resolve_attachment(value)
+        if key in _ATTACHMENT_KEYS and isinstance(value, (list, tuple, set)):
+            value = ",".join(_stringify(item) for item in value)
+        elif isinstance(value, bool):
             value = int(value)
         clean[key] = value
     return f"API.{method}({json.dumps(clean, ensure_ascii=False, separators=(',', ':'))})"
@@ -607,7 +625,7 @@ class VKClient(APICategories):
         probe_error: VKError | None = None
         try:
             payload = await self._api("users.get", {}, entry=entry)
-            users = payload.get("response") or []
+            users = (payload or {}).get("response") or []
         except VKError as exc:
             if exc.is_retryable:
                 # Транзиентный сбой (6/9/10/…): это не значит «токен группы» —
@@ -621,7 +639,7 @@ class VKClient(APICategories):
             entry.name = f"{user.get('first_name', '')} {user.get('last_name', '')}".strip()
             self._logger.debug("токен %r: пользователь id=%s", entry.source, entry.user_id)
             payload = await self._api("account.getAppPermissions", {}, entry=entry)
-            response = payload.get("response")
+            response = (payload or {}).get("response")
             raw = response.get("permissions") if isinstance(response, dict) else response
             if raw is None:
                 raise VKError(
@@ -640,7 +658,7 @@ class VKClient(APICategories):
                 f"{entry.source!r}: не удалось определить владельца токена "
                 f"(ни пользователь, ни сообщество)"
             ) from (probe_error or exc)
-        groups = payload.get("response")
+        groups = (payload or {}).get("response")
         if isinstance(groups, dict):
             groups = groups.get("groups") or []
         if not groups:
@@ -726,7 +744,7 @@ class VKClient(APICategories):
         http_client: HttpClient | None = None,
         base_api_url: str | None = None,
         v: str | None = None,
-    ) -> dict[str, Any]:
+    ) -> dict[str, Any] | None:
         """Сырой вызов VK API (без очереди и батчинга). Возвращает полный payload.
 
         http_client / base_api_url / v переопределяют настройки клиента для этого
@@ -1228,7 +1246,7 @@ class VKClient(APICategories):
             self._logger.error("одиночный execute упал: %r", exc)
             request.set_error(VKError(f"execute: {exc!r}", client=self))
             return
-        request.set_result(payload.get("response"))
+        request.set_result((payload or {}).get("response"))
 
     # ---------- завершение ----------
 

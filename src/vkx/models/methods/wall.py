@@ -34,7 +34,7 @@ class WallCategory(BaseCategory):
     async def create_comment(
         self,
         post_id: int,
-        attachments: list[str] | None = None,
+        attachments: AttachmentsInput | None = None,
         from_group: int | None = None,
         guid: str | None = None,
         message: str | None = None,
@@ -87,7 +87,7 @@ class WallCategory(BaseCategory):
     async def edit(
         self,
         post_id: int,
-        attachments: list[str] | None = None,
+        attachments: AttachmentsInput | None = None,
         close_comments: bool | None = None,
         copyright: str | None = None,
         donut_paid_duration: int | None = None,
@@ -134,7 +134,7 @@ class WallCategory(BaseCategory):
     async def edit_ads_stealth(
         self,
         post_id: int,
-        attachments: list[str] | None = None,
+        attachments: AttachmentsInput | None = None,
         lat: float | None = None,
         link_button: str | None = None,
         link_image: str | None = None,
@@ -167,7 +167,7 @@ class WallCategory(BaseCategory):
     async def edit_comment(
         self,
         comment_id: int,
-        attachments: list[str] | None = None,
+        attachments: AttachmentsInput | None = None,
         message: str | None = None,
         owner_id: int | None = None,
         post_id: int | None = None,
@@ -445,7 +445,7 @@ class WallCategory(BaseCategory):
 
     async def post(
         self,
-        attachments: list[str] | None = None,
+        attachments: AttachmentsInput | None = None,
         close_comments: bool | None = None,
         copyright: str | None = None,
         donut_paid_duration: int | None = None,
@@ -495,7 +495,7 @@ class WallCategory(BaseCategory):
     async def post_ads_stealth(
         self,
         owner_id: int,
-        attachments: list[str] | None = None,
+        attachments: AttachmentsInput | None = None,
         guid: str | None = None,
         lat: float | None = None,
         link_button: str | None = None,
