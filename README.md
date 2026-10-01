@@ -1,5 +1,10 @@
 # vkx
 
+[![PyPI](https://img.shields.io/pypi/v/vkx)](https://pypi.org/project/vkx/)
+[![Python](https://img.shields.io/pypi/pyversions/vkx)](https://pypi.org/project/vkx/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+[![CI](https://github.com/matrixd0t/vkx/actions/workflows/ci.yml/badge.svg)](https://github.com/matrixd0t/vkx/actions/workflows/ci.yml)
+
 Библиотека для работы с VK API от Точки aka d0tmatrix. В каком-то смысле альтернатива бутылке.
 
 - **Клиент** — `vkx.VKClient`: выбор токена по правам (scope), привязка к владельцу,

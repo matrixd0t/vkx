@@ -6,6 +6,7 @@ build-backend = "hatchling.build"
 name = "vkx"
 version = "0.1.0"
 description = "Асинхронный клиент VK API: выбор токена по scope, батчинг через execute, типы API/событий и разбор Callback/Long Poll."
+readme = "README.md"
 requires-python = ">=3.12"
 authors = [{ name = "to4e4ka" }]
 license = "MIT"
@@ -30,6 +31,11 @@ dependencies = [
 http = ["httpx>=0.28.1"]
 all = ["httpx>=0.28.1"]
 
+[project.urls]
+Homepage = "https://github.com/matrixd0t/vkx"
+Repository = "https://github.com/matrixd0t/vkx"
+Issues = "https://github.com/matrixd0t/vkx/issues"
+
 [dependency-groups]
 dev = [
     "httpx>=0.28.1",
@@ -46,7 +52,7 @@ dev = [
 packages = ["src/vkx"]
 
 [tool.hatch.build.targets.sdist]
-include = ["src/vkx", "pyproject.toml", "LICENSE"]
+include = ["src/vkx", "pyproject.toml", "README.md", "LICENSE"]
 
 [tool.ruff]
 src = ["src"]
