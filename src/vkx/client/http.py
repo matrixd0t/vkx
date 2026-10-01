@@ -54,9 +54,9 @@ def create_http_client() -> HttpClient:
         ) from exc
     return cast(
         "HttpClient",
-        httpx.AsyncClient(
+        cast(object, httpx.AsyncClient(
             headers=DEFAULT_HEADERS,
             timeout=httpx.Timeout(30.0),
             follow_redirects=True,
-        ),
+        )),
     )

@@ -120,7 +120,7 @@ class MarketCategory(BaseCategory):
         self,
         item_id: int,
         owner_id: int,
-        attachments: list[str] | None = None,
+        attachments: AttachmentsInput | None = None,
         from_group: bool | None = None,
         guid: str | None = None,
         message: str | None = None,
@@ -280,7 +280,7 @@ class MarketCategory(BaseCategory):
         self,
         comment_id: int,
         owner_id: int,
-        attachments: list[str] | None = None,
+        attachments: AttachmentsInput | None = None,
         message: str | None = None,
     ) -> OkResponseModel:
         """Method `market.editComment()`

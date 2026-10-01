@@ -20,6 +20,33 @@ def attachment_string(
     return f"{result}_{access_key}" if access_key else result
 
 
+class AttachmentLike(typing.Protocol):
+    """Объект VK, умеющий отдавать строку-вложение через ``.as_att``."""
+
+    @property
+    def as_att(self) -> str: ...
+
+
+type AttachmentInput = str | AttachmentLike
+"""Одно вложение: готовая строка VK или объект с ``.as_att``."""
+
+type AttachmentsInput = AttachmentInput | typing.Sequence[AttachmentInput]
+"""Вложения: одно значение, объект с ``.as_att`` или их последовательность."""
+
+
+def attachment_to_string(value: typing.Any) -> str:
+    """Привести вложение к строке VK: разворачивает ``.as_att`` и списки объектов/строк."""
+    if isinstance(value, str):
+        return value
+    as_att = getattr(value, "as_att", None)
+    if as_att is not None:
+        resolved = as_att() if callable(as_att) else as_att
+        return "" if resolved is None else str(resolved)
+    if isinstance(value, (list, tuple, set, frozenset)):
+        return ",".join(part for part in (attachment_to_string(item) for item in value) if part)
+    return str(value)
+
+
 def _is_friend(bases: tuple[type[typing.Any], ...], /) -> bool:
     return any(friend in bases for friend in ENUM_FRIENDS)
 
@@ -169,6 +196,9 @@ NOT_SUPPORTED_VALUES.update({enum.StrEnum: NOT_SUPPORTED})
 
 
 __all__ = (
+    "AttachmentInput",
+    "AttachmentLike",
+    "AttachmentsInput",
     "BaseEnumMeta",
     "BaseModel",
     "Field",
@@ -176,4 +206,5 @@ __all__ = (
     "IntEnum",
     "StrEnum",
     "attachment_string",
+    "attachment_to_string",
 )
