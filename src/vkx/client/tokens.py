@@ -18,6 +18,7 @@ TokenSource — Protocol с одним методом:
 
 from __future__ import annotations
 
+import contextlib
 import time
 from typing import Any, Protocol, Self, runtime_checkable
 
@@ -173,10 +174,8 @@ class _StatefulSource:
     async def _save(self) -> None:
         if self._store is None:
             return
-        try:
+        with contextlib.suppress(Exception):  # сбой персистентности не ломает авторизацию
             await self.save_state(self.state())
-        except Exception:  # noqa: BLE001, S110 — сбой персистентности не ломает авторизацию
-            pass
 
     def state(self) -> State:
         raise NotImplementedError
@@ -228,10 +227,8 @@ class StaticTokenSource(_StatefulSource):
         """Токен недействителен: забыть его и удалить запись из store."""
         self._token = None
         self._loaded = True
-        try:
+        with contextlib.suppress(Exception):
             await self.delete_state()
-        except Exception:  # noqa: BLE001, S110
-            pass
 
     def state(self) -> State:
         user_id, group_id = self.owner_columns()
@@ -381,10 +378,8 @@ class WebCookieSource(_StatefulSource):
         """Токен недействителен: забыть его и удалить запись из store (cookies остаются)."""
         self._token = None
         self._token_expires = 0.0
-        try:
+        with contextlib.suppress(Exception):
             await self.delete_state()
-        except Exception:  # noqa: BLE001, S110
-            pass
 
     async def aclose(self) -> None:
         if self._own_http:

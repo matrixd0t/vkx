@@ -19022,6 +19022,7 @@ __all__ = (
     "BoolInt",
     "Bugreport",
     "BugreportSubscribeState",
+    "Button",
     "ButtonAction",
     "ButtonOneOf",
     "ButtonPayload",

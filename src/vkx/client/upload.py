@@ -1,4 +1,5 @@
-"""Хелперы загрузки файлов в VK: изображения (photos.*) и документы (docs.*).
+"""Хелперы загрузки файлов в VK: изображения (photos.*), документы (docs.*)
+и голосовые сообщения (docs.getMessagesUploadServer с type=audio_message).
 
 Полный цикл одного хелпера:
 
@@ -26,6 +27,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import mimetypes
 from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any
@@ -44,8 +46,13 @@ if TYPE_CHECKING:
 
 PHOTO_FILENAME = "photo.jpg"
 DOC_FILENAME = "file"
+AUDIO_MESSAGE_FILENAME = "audio_message.ogg"
 PHOTO_CONTENT_TYPE = "image/jpeg"
 DOC_CONTENT_TYPE = "application/octet-stream"
+AUDIO_MESSAGE_CONTENT_TYPE = "audio/ogg"
+
+UPLOAD_RETRIES = 2
+UPLOAD_RETRY_DELAY = 0.5
 
 
 def _error(client: VKClient, message: str, *, raw: Any = None) -> Exception:
@@ -74,6 +81,11 @@ def _as_mapping(payload: Any, *, client: VKClient, method: str) -> Mapping[str, 
     return payload
 
 
+def _field(payload: Mapping[str, Any], key: str) -> Any:
+    """Поле upload-ответа: VK отдаёт разные типы, поэтому ``Any``, а не ``str | None``."""
+    return payload.get(key)
+
+
 def _normalize_payload(payload: Any) -> Any:
     """Upload-серверы VK иногда оборачивают поля в ``{"response": {...}}`` — снимаем."""
     if isinstance(payload, Mapping):
@@ -81,6 +93,19 @@ def _normalize_payload(payload: Any) -> Any:
         if isinstance(inner, Mapping):
             return inner
     return payload
+
+
+def _upload_error(payload: Any) -> str | None:
+    """Текст ошибки upload-сервера, если он вернул её с HTTP 200.
+
+    VK изредка отвечает ``{"error": "unknown error", "error_descr": ""}`` вместо
+    ожидаемых полей — это транзиентный сбой, который нужно распознать, а не
+    молча передать дальше как ``None``.
+    """
+    if isinstance(payload, Mapping) and payload.get("error"):
+        descr = payload.get("error_descr")
+        return str(descr) if descr else str(payload["error"])
+    return None
 
 
 async def _post_file(
@@ -122,20 +147,35 @@ async def _upload(
     form: Mapping[str, Any] | None = None,
     http_client: HttpClient | None = None,
 ) -> Any:
-    """Сервер загрузки через очередь -> multipart напрямую -> ответ сервера."""
+    """Сервер загрузки через очередь -> multipart напрямую -> ответ сервера.
+
+    Транзиентная ошибка upload-сервера (``{"error": ...}`` с HTTP 200) повторяется
+    до ``UPLOAD_RETRIES`` раз; если не помогло — ``VKError`` с сырым ответом.
+    """
     payload = await client.call(server_method, **server_params)
     url = _upload_url(payload, client=client, method=server_method)
     resolved = content_type or _guess_content_type(filename, default_content_type)
-    return await _post_file(
-        client,
-        url,
-        data,
-        field=field,
-        filename=filename,
-        content_type=resolved,
-        form=form,
-        http_client=http_client,
-    )
+    attempt = 0
+    while True:
+        result = await _post_file(
+            client,
+            url,
+            data,
+            field=field,
+            filename=filename,
+            content_type=resolved,
+            form=form,
+            http_client=http_client,
+        )
+        error = _upload_error(result)
+        if error is None:
+            return result
+        if attempt >= UPLOAD_RETRIES:
+            raise _error(
+                client, f"{server_method}: сервер загрузки вернул ошибку: {error}", raw=result
+            )
+        attempt += 1
+        await asyncio.sleep(UPLOAD_RETRY_DELAY * attempt)
 
 
 # ---------- изображения (photos.*) ----------
@@ -210,7 +250,7 @@ async def upload_photo_to_wall(
     )
     uploaded = _as_mapping(raw, client=client, method="photos.getWallUploadServer")
     return await client.photos.save_wall_photo(
-        photo=uploaded.get("photo"),
+        photo=_field(uploaded, "photo"),
         server=uploaded.get("server"),
         hash=uploaded.get("hash"),
         group_id=group_id,
@@ -246,7 +286,7 @@ async def upload_photo_to_messages(
     )
     uploaded = _as_mapping(raw, client=client, method="photos.getMessagesUploadServer")
     return await client.photos.save_messages_photo(
-        photo=uploaded.get("photo"),
+        photo=_field(uploaded, "photo"),
         hash=uploaded.get("hash"),
         server=uploaded.get("server"),
     )
@@ -360,7 +400,7 @@ async def upload_photo_to_chat(
         },
         http_client=http_client,
     )
-    file = raw.get("response") if isinstance(raw, Mapping) and "response" in raw else raw
+    file: Any = raw.get("response") if isinstance(raw, Mapping) and "response" in raw else raw
     return await client.messages.set_chat_photo(file=file)
 
 
@@ -392,9 +432,9 @@ async def upload_photo_to_market_album(
     )
     return await client.photos.save_market_album_photo(
         group_id=group_id,
-        hash=uploaded.get("hash"),
-        photo=uploaded.get("photo"),
-        server=uploaded.get("server"),
+        hash=_field(uploaded, "hash"),
+        photo=_field(uploaded, "photo"),
+        server=_field(uploaded, "server"),
     )
 
 
@@ -428,7 +468,7 @@ async def _save_doc(
     )
     uploaded = _as_mapping(raw, client=client, method=server_method)
     return await client.docs.save(
-        file=uploaded.get("file"),
+        file=_field(uploaded, "file"),
         title=title,
         tags=tags,
         return_tags=return_tags,
@@ -530,6 +570,40 @@ async def upload_doc_to_messages(
         field=field,
         http_client=http_client,
     )
+
+
+# ---------- голосовые сообщения (audio_message) ----------
+
+
+async def upload_audio_message(
+    client: VKClient,
+    data: bytes,
+    *,
+    peer_id: int | None = None,
+    filename: str = AUDIO_MESSAGE_FILENAME,
+    content_type: str | None = None,
+    field: str = "file",
+    http_client: HttpClient | None = None,
+    **server_params: Any,
+) -> DocsSaveResponseModel:
+    """Загрузить голосовое: ``getMessagesUploadServer(type=audio_message) -> docs.save``.
+
+    Возвращает ``DocsSaveResponseModel`` с полем ``audio_message``; готовая
+    строка-вложение доступна как ``result.as_att``.
+    """
+    raw = await _upload(
+        client,
+        data,
+        server_method="docs.getMessagesUploadServer",
+        field=field,
+        filename=filename,
+        content_type=content_type,
+        default_content_type=AUDIO_MESSAGE_CONTENT_TYPE,
+        server_params={"peer_id": peer_id, "type": "audio_message", **server_params},
+        http_client=http_client,
+    )
+    uploaded = _as_mapping(raw, client=client, method="docs.getMessagesUploadServer")
+    return await client.docs.save(file=_field(uploaded, "file"))
 
 
 # ---------- namespace vk.upload ----------
@@ -832,13 +906,39 @@ class UploadNamespace:
             **server_params,
         )
 
+    async def audio_message(
+        self,
+        data: bytes,
+        *,
+        peer_id: int | None = None,
+        filename: str = AUDIO_MESSAGE_FILENAME,
+        content_type: str | None = None,
+        field: str = "file",
+        http_client: HttpClient | None = None,
+        **server_params: Any,
+    ) -> DocsSaveResponseModel:
+        """Голосовое сообщение: ``getMessagesUploadServer(type=audio_message) -> docs.save``."""
+        return await upload_audio_message(
+            self._client,
+            data,
+            peer_id=peer_id,
+            filename=filename,
+            content_type=content_type,
+            field=field,
+            http_client=http_client,
+            **server_params,
+        )
+
 
 __all__ = (
+    "AUDIO_MESSAGE_CONTENT_TYPE",
+    "AUDIO_MESSAGE_FILENAME",
     "DOC_CONTENT_TYPE",
     "DOC_FILENAME",
     "PHOTO_CONTENT_TYPE",
     "PHOTO_FILENAME",
     "UploadNamespace",
+    "upload_audio_message",
     "upload_doc",
     "upload_doc_to_messages",
     "upload_doc_to_wall",

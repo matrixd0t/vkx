@@ -17,7 +17,7 @@ class EventObject(BaseModel):
     def _from_sequence(cls, value: Any) -> Any:
         """User Long Poll отдаёт объект позиционным списком — раскладываем по полям."""
         if isinstance(value, (list, tuple)):
-            return dict(zip(cls.model_fields, value))
+            return dict(zip(cls.model_fields, value, strict=False))
         return value
 
 

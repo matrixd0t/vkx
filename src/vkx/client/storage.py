@@ -111,12 +111,15 @@ class JSONStore(Store):
         return f"{int(app_id)}/{client}/{source}"
 
     def _load(self) -> dict[str, dict[str, Any]]:
-        if self._data is None:
-            if self._path.exists():
-                self._data = json.loads(self._path.read_text(encoding="utf-8"))
-            else:
-                self._data = {}
-        return self._data
+        data = self._data
+        if data is None:
+            data = (
+                json.loads(self._path.read_text(encoding="utf-8"))
+                if self._path.exists()
+                else {}
+            )
+            self._data = data
+        return data
 
     def _flush(self) -> None:
         tmp = self._path.with_suffix(self._path.suffix + ".tmp")

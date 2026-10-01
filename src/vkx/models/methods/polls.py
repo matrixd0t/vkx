@@ -1,3 +1,5 @@
+import typing
+
 from ..objects import *
 from ..responses.base import OkResponseModel
 from .base_category import BaseCategory

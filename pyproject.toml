@@ -1,16 +1,79 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
 [project]
 name = "vkx"
 version = "0.1.0"
-requires-python = ">=3.13"
+description = "Асинхронный клиент VK API: выбор токена по scope, батчинг через execute, типы API/событий и разбор Callback/Long Poll."
+requires-python = ">=3.12"
+authors = [{ name = "to4e4ka" }]
+license = "MIT"
+license-files = ["LICENSE"]
+keywords = ["vk", "vk-api", "asyncio", "api-client", "longpoll", "callback-api"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Framework :: AsyncIO",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3 :: Only",
+    "Typing :: Typed",
+]
 dependencies = [
-    "pillow>=12.3.0",
     "pydantic>=2.13.5",
-    "qrcode>=8.2",
-    "vkbottle-types>=5.199.99.22",
 ]
 
 [project.optional-dependencies]
 http = ["httpx>=0.28.1"]
+all = ["httpx>=0.28.1"]
 
 [dependency-groups]
-dev = ["httpx>=0.28.1"]
+dev = [
+    "httpx>=0.28.1",
+    "ruff>=0.6",
+    "fastapi>=0.110",
+    "starlette>=0.27",
+    "aiohttp>=3.9",
+    "sanic>=23.12",
+    "django>=4.2",
+    "flask>=3.0",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/vkx"]
+
+[tool.hatch.build.targets.sdist]
+include = ["src/vkx", "pyproject.toml", "LICENSE"]
+
+[tool.ruff]
+src = ["src"]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "C4", "SIM", "BLE", "RUF"]
+ignore = [
+    "E501",   # длинные строки документации VK API
+    "RUF001", # кириллица в docstring/сообщениях
+    "RUF002",
+    "RUF003",
+    "RUF100", # noqa оставляем осознанно (BLE001 и т.п.)
+    "UP042",  # собственный StrEnum
+]
+
+[tool.ruff.lint.per-file-ignores]
+"src/vkx/models/**/*.py" = ["E402", "E741", "F403", "F405"]
+"src/vkx/models/methods/**/*.py" = ["F811"]
+
+[tool.pyright]
+include = ["src/vkx"]
+# Модели (objects/responses/methods/events) — перенесённый сгенерированный слой;
+# типы там поддерживаются вручную и проверяются отдельно от клиента/серверов.
+exclude = ["src/vkx/models"]
+pythonVersion = "3.12"
+venvPath = "."
+venv = ".venv"
+typeCheckingMode = "basic"

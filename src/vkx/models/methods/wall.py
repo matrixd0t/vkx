@@ -1,3 +1,5 @@
+import typing
+
 from ..objects import *
 from ..responses.base import OkResponseModel
 from ..responses.wall import *  # type: ignore

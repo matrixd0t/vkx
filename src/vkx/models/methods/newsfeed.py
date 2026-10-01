@@ -1,3 +1,5 @@
+import typing
+
 from ..objects import *
 from ..objects import UserGroupFields
 from ..responses.base import OkResponseModel

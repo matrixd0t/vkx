@@ -17,6 +17,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import enum
 import logging
 from collections.abc import AsyncIterator, Iterable
@@ -110,10 +111,8 @@ class BaseLongPoll:
         self._task = None
         if task is not None:
             task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await task
-            except asyncio.CancelledError:
-                pass
 
     # ---------- получение событий ----------
 

@@ -8,9 +8,7 @@ status_code / text / json(). httpx — опциональная зависимо
 
 from __future__ import annotations
 
-from typing import Any, Protocol, runtime_checkable
-
-from httpx import AsyncClient
+from typing import Any, Protocol, cast, runtime_checkable
 
 DEFAULT_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:159.0) Gecko/20100101 Firefox/159.0"
 DEFAULT_ACCEPT_LANGUAGE = "ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7"
@@ -42,8 +40,10 @@ class HttpClient(Protocol):
 
     async def post(self, url: str, **kwargs: Any) -> HttpResponse: ...
 
+    async def aclose(self) -> None: ...
 
-def create_http_client() -> AsyncClient:
+
+def create_http_client() -> HttpClient:
     """HTTP-клиент по умолчанию; httpx импортируется лениво (опциональная зависимость)."""
     try:
         import httpx
@@ -52,8 +52,11 @@ def create_http_client() -> AsyncClient:
             "httpx не установлен. Установите его (pip install httpx) или передайте свой "
             "HTTP-клиент с асинхронными get/post в VKClient."
         ) from exc
-    return httpx.AsyncClient(
-        headers=DEFAULT_HEADERS,
-        timeout=httpx.Timeout(30.0),
-        follow_redirects=True,
+    return cast(
+        "HttpClient",
+        httpx.AsyncClient(
+            headers=DEFAULT_HEADERS,
+            timeout=httpx.Timeout(30.0),
+            follow_redirects=True,
+        ),
     )
