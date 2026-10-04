@@ -1037,7 +1037,7 @@ class MessagesCategory(BaseCategory):
             user_id: int | None = None,
             random_id: int | None = None,
             peer_id: int | None = None,
-            peer_ids: list[int] | None = None,
+            peer_ids: None = None,
             domain: str | None = None,
             chat_id: int | None = None,
             user_ids: None = ...,
