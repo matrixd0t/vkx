@@ -2,10 +2,12 @@ import typing
 from typing import Literal
 
 from ..objects import *
-from ..objects import Chat, ChatFull, SendUserIdsResponseItem, UsersFields
+from ..objects import Chat, ChatFull, SendPeerIdsResponseItem, UsersFields
 from ..responses.base import OkResponseModel
 from ..responses.messages import *  # type: ignore
 from .base_category import BaseCategory
+
+_MESSAGE_MAX_LENGTH = 4000
 
 
 class MessagesCategory(BaseCategory):
@@ -1073,7 +1075,7 @@ class MessagesCategory(BaseCategory):
                     | None
             ) = None,
             subscribe_id: int | None = None,
-    ) -> int: ...
+    ) -> list[list[int]]: ...
 
     @typing.overload
     async def send(
@@ -1117,7 +1119,7 @@ class MessagesCategory(BaseCategory):
                     | None
             ) = None,
             subscribe_id: int | None = None,
-    ) -> list[SendUserIdsResponseItem]: ...
+    ) -> list[list[SendPeerIdsResponseItem]]: ...
 
     @typing.overload
     async def send(
@@ -1161,7 +1163,7 @@ class MessagesCategory(BaseCategory):
                     | None
             ) = None,
             subscribe_id: int | None = None,
-    ) -> list[SendUserIdsResponseItem]: ...
+    ) -> list[list[SendPeerIdsResponseItem]]: ...
 
     async def send(
             self,
@@ -1204,7 +1206,7 @@ class MessagesCategory(BaseCategory):
                     | None
             ) = None,
             subscribe_id: int | None = None,
-    ) -> list[SendUserIdsResponseItem] | int:
+    ) -> list[list[SendPeerIdsResponseItem | int]]:
         """Sends a message.
 
         :param user_id: User ID (by default — current user).
@@ -1233,12 +1235,40 @@ class MessagesCategory(BaseCategory):
         :param subscribe_id:
         """
 
-        return await self._call(
-            "messages.send",
-            locals(),
-            dependent=((("user_ids",), list[SendUserIdsResponseItem]), (("peer_ids",), list[SendUserIdsResponseItem]),),
-            default=int,
+        params = locals().copy()
+        chunks = (
+            [
+                message[index:index + _MESSAGE_MAX_LENGTH]
+                for index in range(0, len(message), _MESSAGE_MAX_LENGTH)
+            ]
+            if message
+            else [message]
         )
+        responses: list[SendPeerIdsResponseItem | int] = []
+        for index, chunk in enumerate(chunks):
+            chunk_params = params.copy()
+            chunk_params["message"] = chunk
+            if random_id is not None and index:
+                chunk_params["random_id"] = random_id + index
+            response = await self._call(
+                "messages.send",
+                chunk_params,
+                dependent=(
+                    (("user_ids",), list[SendPeerIdsResponseItem]),
+                    (("peer_ids",), list[SendPeerIdsResponseItem]),
+                ),
+                default=int,
+            )
+            responses.extend(response if isinstance(response, list) else [response])
+
+        if user_ids is not None or peer_ids is not None:
+            peers: dict[int, list[SendPeerIdsResponseItem]] = {}
+            for response in responses:
+                if isinstance(response, SendPeerIdsResponseItem):
+                    peers.setdefault(response.peer_id, []).append(response)
+            return list(peers.values())
+
+        return [[typing.cast(int, response) for response in responses]]
 
     @typing.overload  # type: ignore
     async def get_chat(

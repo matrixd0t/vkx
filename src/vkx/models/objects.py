@@ -19533,7 +19533,7 @@ __all__ = (
     "SectionsListItem",
     "SendMessageError",
     "SendMessageItem",
-    "SendUserIdsResponseItem",
+    "SendPeerIdsResponseItem",
     "ServicesViewType",
     "SetCounterItem",
     "SettingsTwitter",
@@ -19835,7 +19835,7 @@ class LinkAttachment(Link):
     photo: LinkPhoto | None = None
 
 
-class SendUserIdsResponseItem(BaseModel):
+class SendPeerIdsResponseItem(BaseModel):
     conversation_message_id: int | None = None
     error: MessageError | None = None
     message_id: int | None
