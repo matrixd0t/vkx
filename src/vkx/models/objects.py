@@ -1325,7 +1325,14 @@ class OnlineInfo(BaseModel):
 
 
 class Personal(BaseModel):
-    """Model: `Personal`"""
+    """Model: `Personal`; VK может сериализовать пустой объект как ``[]``."""
+
+    @pydantic.model_validator(mode="before")
+    @classmethod
+    def _empty_array_as_object(cls, data: typing.Any) -> typing.Any:
+        if isinstance(data, list) and not data:
+            return {}
+        return data
 
     alcohol: int | None = Field(
         default=None,

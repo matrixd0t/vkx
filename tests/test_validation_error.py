@@ -1,7 +1,10 @@
 import json
 import unittest
 
+from pydantic import ValidationError
+
 from vkx import VKClient, VKError, VKValidationError
+from vkx.models.objects import Personal, UserSettings
 
 
 class FakeResponse:
@@ -65,6 +68,25 @@ class ValidationErrorTests(unittest.IsolatedAsyncioTestCase):
                     self.assertTrue(error.validation_error.errors())
                 finally:
                     await client.aclose()
+
+
+class PersonalModelTests(unittest.TestCase):
+    def test_empty_personal_array_is_parsed_as_an_empty_model(self):
+        settings = UserSettings.model_validate(
+            {
+                "id": 123,
+                "home_town": "",
+                "status": "",
+                "personal": [],
+            }
+        )
+
+        self.assertIsInstance(settings.personal, Personal)
+        self.assertIsNone(settings.personal.alcohol)
+
+    def test_non_empty_personal_array_is_not_silently_accepted(self):
+        with self.assertRaises(ValidationError):
+            Personal.model_validate([1])
 
 
 if __name__ == "__main__":
