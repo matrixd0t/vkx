@@ -71,7 +71,24 @@ class BaseCategory:
         if model is None:
             raise TypeError(f"{method}: не задана модель ответа")
         payload = response.get("response") if isinstance(response, dict) and "response" in response else response
-        return _adapter(model).validate_python(payload)
+        try:
+            return _adapter(model).validate_python(payload)
+        except pydantic.ValidationError as exc:
+            from ...client.errors import VKValidationError
+
+            metadata = response if isinstance(response, dict) else {}
+            call = metadata.get("_vkx_call")
+            raw_responses = tuple(metadata.get("_vkx_raw_responses", ()))
+            model_name = getattr(model, "__name__", repr(model))
+            raise VKValidationError(
+                f"{method}: ответ не прошёл валидацию для {model_name}: {exc}",
+                client=getattr(call, "client", None),
+                call=call,
+                raw=payload,
+                raw_response=metadata.get("_vkx_raw_response"),
+                raw_responses=raw_responses,
+                validation_error=exc,
+            ) from exc
 
     @classmethod
     def get_model(

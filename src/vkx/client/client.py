@@ -304,6 +304,7 @@ class PendingApiCall:
         "event",
         "method",
         "params",
+        "raw_response",
         "result",
         "scope",
         "timeout",
@@ -322,15 +323,17 @@ class PendingApiCall:
         self.scope = method_scope(method)
         self.event = asyncio.Event()
         self.result: Any = None
+        self.raw_response: str | None = None
         self.error: VKError | None = None
         self.client = client
         self.timeout = timeout
         self.cancelled = False
 
-    def set_result(self, value: Any) -> None:
+    def set_result(self, value: Any, *, raw_response: str | None = None) -> None:
         if self.cancelled:
             return
         self.result = value
+        self.raw_response = raw_response
         self.event.set()
 
     def set_error(self, error: VKError) -> None:
@@ -393,14 +396,34 @@ class _CategoryApi:
     async def request(self, method: str, params: dict[str, Any]) -> Any:
         if method == "execute":
             return await self._client.call(method, **params)
-        result = await self._request_paginated(method, params)
-        return {"response": result}
+        result, raw_responses, call = await self._request_paginated(method, params)
+        return {
+            "response": result,
+            "_vkx_raw_response": raw_responses[-1] if raw_responses else None,
+            "_vkx_raw_responses": tuple(raw_responses),
+            "_vkx_call": call,
+        }
 
-    async def _request_paginated(self, method: str, params: dict[str, Any]) -> Any:
+    async def _request_paginated(
+        self, method: str, params: dict[str, Any]
+    ) -> tuple[Any, list[str], PendingApiCall | None]:
         """Вызов метода с автопагинацией: зажать count, добрать страницы, слить."""
+        raw_responses: list[str] = []
+        last_call: PendingApiCall | None = None
+
+        async def fetch(page_params: dict[str, Any]) -> Any:
+            nonlocal last_call
+            result, raw_response, last_call = await self._client.call(
+                method, _with_metadata=True, **page_params
+            )
+            if raw_response is not None:
+                raw_responses.append(raw_response)
+            return result
+
         if not self._client._effective_pagination():
             # Автопагинация выключена: одна страница, тело ответа как есть.
-            return await self._client.call(method, **params)
+            result = await fetch(params)
+            return result, raw_responses, last_call
         original = params.get("count")
         requested = int(original) if original is not None else None
         call_params = params
@@ -409,7 +432,7 @@ class _CategoryApi:
             page_count = limit if requested is None else min(requested, limit)
             call_params = {**params, "count": page_count}
         try:
-            result = await self._client.call(method, **call_params)
+            result = await fetch(call_params)
         except VKError as exc:
             learned = pagination.parse_count_limit(exc)
             if learned is None or "count" not in call_params:
@@ -419,14 +442,15 @@ class _CategoryApi:
                 **call_params,
                 "count": min(int(call_params["count"]), learned),
             }
-            result = await self._client.call(method, **call_params)
-        return await pagination.paginate(
-            lambda page: self._client.call(method, **page),
+            result = await fetch(call_params)
+        result = await pagination.paginate(
+            fetch,
             method,
             call_params,
             result,
             requested,
         )
+        return result, raw_responses, last_call
 
 
 class VKClient(APICategories):
@@ -624,7 +648,7 @@ class VKClient(APICategories):
         users: list[Any] = []
         probe_error: VKError | None = None
         try:
-            payload = await self._api("users.get", {}, entry=entry)
+            payload, _ = await self._api("users.get", {}, entry=entry)
             users = (payload or {}).get("response") or []
         except VKError as exc:
             if exc.is_retryable:
@@ -638,7 +662,7 @@ class VKClient(APICategories):
             entry.kind = "user"
             entry.name = f"{user.get('first_name', '')} {user.get('last_name', '')}".strip()
             self._logger.debug("токен %r: пользователь id=%s", entry.source, entry.user_id)
-            payload = await self._api("account.getAppPermissions", {}, entry=entry)
+            payload, _ = await self._api("account.getAppPermissions", {}, entry=entry)
             response = (payload or {}).get("response")
             raw = response.get("permissions") if isinstance(response, dict) else response
             if raw is None:
@@ -652,7 +676,7 @@ class VKClient(APICategories):
             return
         self._logger.debug("токен %r: пользователь не найден, groups.getById", entry.source)
         try:
-            payload = await self._api("groups.getById", {}, entry=entry)
+            payload, _ = await self._api("groups.getById", {}, entry=entry)
         except VKError as exc:
             raise TokenSourceError(
                 f"{entry.source!r}: не удалось определить владельца токена "
@@ -744,7 +768,7 @@ class VKClient(APICategories):
         http_client: HttpClient | None = None,
         base_api_url: str | None = None,
         v: str | None = None,
-    ) -> dict[str, Any] | None:
+    ) -> tuple[dict[str, Any] | None, str]:
         """Сырой вызов VK API (без очереди и батчинга). Возвращает полный payload.
 
         http_client / base_api_url / v переопределяют настройки клиента для этого
@@ -815,18 +839,19 @@ class VKClient(APICategories):
                 raise VKTransportError(
                     f"{method}: HTTP {status}", client=self, raw=response.text[:300]
                 )
+            raw_response = response.text
             try:
                 payload: dict[str, Any] = response.json()
             except ValueError as exc:
                 raise VKError(
                     f"{method}: некорректный ответ (HTTP {status})",
                     client=self,
-                    raw=response.text[:300],
+                    raw=raw_response[:300],
                 ) from exc
             error = payload.get("error") if isinstance(payload, dict) else None
             if not error:
                 self._note_success()
-                return payload
+                return payload, raw_response
             code = int(error.get("error_code") or 0)
             message = str(error.get("error_msg") or f"VK API error {code}")
             api_error = build_error(message, client=self, code=code, raw=payload)
@@ -966,7 +991,7 @@ class VKClient(APICategories):
             await self._call_single_execute(items[0])
             return
         try:
-            payload = await self._api(
+            payload, raw_response = await self._api(
                 "execute",
                 {"code": code},
                 entry=entry,
@@ -984,14 +1009,16 @@ class VKClient(APICategories):
             self._fail_batch(requests, VKError(f"execute: {exc!r}", client=self))
             return
         try:
-            await self._distribute_batch(items, payload)
+            await self._distribute_batch(items, payload, raw_response)
         except asyncio.CancelledError:
             raise
         except Exception as exc:  # noqa: BLE001
             self._logger.error("раздача execute-батча упала: %r", exc)
             self._fail_batch(requests, VKError(f"execute: {exc!r}", client=self))
 
-    async def _distribute_batch(self, items: list[_Queued], payload: Any) -> None:
+    async def _distribute_batch(
+        self, items: list[_Queued], payload: Any, raw_response: str
+    ) -> None:
         requests = [item.request for item in items]
         if not isinstance(payload, dict):
             self._logger.error("execute: неожиданный ответ %r", payload)
@@ -1030,7 +1057,7 @@ class VKClient(APICategories):
             value = response[position] if position < len(response) else None
             # VK помечает упавший вызов в execute значением false (или null)
             if value is not None and value is not False:
-                request.set_result(value)
+                request.set_result(value, raw_response=raw_response)
                 continue
             raw_error = take_error(request.method)
             if raw_error is None and value is None:
@@ -1046,7 +1073,7 @@ class VKClient(APICategories):
                         )
                     )
                 else:
-                    request.set_result(False)  # легитимный false-ответ метода
+                    request.set_result(False, raw_response=raw_response)  # легитимный false-ответ метода
                 continue
             code = int(raw_error.get("error_code") or 0)
             message = str(raw_error.get("error_msg") or "ошибка внутри execute")
@@ -1135,6 +1162,7 @@ class VKClient(APICategories):
         v: str | None = None,
         timeout: float | None = None,
         batching: bool | None = None,
+        _with_metadata: bool = False,
         **params: Any,
     ) -> Any:
         """Вызов VK API: запрос встаёт в очередь, ответ приходит очередным батчем.
@@ -1188,7 +1216,10 @@ class VKClient(APICategories):
         )
         self._ensure_flush_task()
         self._logger.debug("в очередь: %s", method)
-        return await request.wait()
+        result = await request.wait()
+        if _with_metadata:
+            return result, request.raw_response, request
+        return result
 
     api = call
 
@@ -1196,7 +1227,7 @@ class VKClient(APICategories):
         """Прямой вызов метода без ``execute`` (для запросов с выключенным батчингом)."""
         request = item.request
         try:
-            payload = await self._api(
+            payload, raw_response = await self._api(
                 request.method,
                 request.params,
                 entry=item.entry,
@@ -1223,13 +1254,16 @@ class VKClient(APICategories):
             self._logger.error("%s: прямой вызов упал: %r", request.method, exc)
             request.set_error(VKError(f"{request.method}: {exc!r}", client=self))
             return
-        request.set_result(payload.get("response") if isinstance(payload, dict) else payload)
+        request.set_result(
+            payload.get("response") if isinstance(payload, dict) else payload,
+            raw_response=raw_response,
+        )
 
     async def _call_single_execute(self, item: _Queued) -> None:
         """Одиночный execute из очереди: код отправляется как есть, без обёртки в батч."""
         request = item.request
         try:
-            payload = await self._api(
+            payload, raw_response = await self._api(
                 "execute",
                 request.params,
                 entry=item.entry,
@@ -1246,7 +1280,7 @@ class VKClient(APICategories):
             self._logger.error("одиночный execute упал: %r", exc)
             request.set_error(VKError(f"execute: {exc!r}", client=self))
             return
-        request.set_result((payload or {}).get("response"))
+        request.set_result((payload or {}).get("response"), raw_response=raw_response)
 
     # ---------- завершение ----------
 

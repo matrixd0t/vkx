@@ -28,6 +28,7 @@ from .errors import (
     VKServerError,
     VKTimeoutError,
     VKTransportError,
+    VKValidationError,
     build_error,
 )
 from .http import API_HOST, API_VERSION, HttpClient, HttpResponse
@@ -102,6 +103,7 @@ __all__ = [
     "VKServerError",
     "VKTimeoutError",
     "VKTransportError",
+    "VKValidationError",
     "WebCookieSource",
     "build_error",
     "default_store",

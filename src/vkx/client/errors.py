@@ -203,6 +203,30 @@ class VKTimeoutError(VKError):
     """
 
 
+class VKValidationError(VKError):
+    """Ответ VK не соответствует ожидаемой модели.
+
+    ``validation_error`` хранит исходную ошибку Pydantic, а ``raw_response`` и
+    ``raw_responses`` — текст HTTP-ответа (или страниц при автопагинации).
+    """
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        validation_error: Exception,
+        raw_response: str | None = None,
+        raw_responses: tuple[str, ...] = (),
+        **kwargs: Any,
+    ) -> None:
+        super().__init__(message, **kwargs)
+        self.validation_error = validation_error
+        self.raw_response = raw_response
+        self.raw_responses = raw_responses or (
+            (raw_response,) if raw_response is not None else ()
+        )
+
+
 _CODE_CLASSES: dict[int, type[VKError]] = {
     5: VKInvalidTokenError,
     27: VKAuthError,
