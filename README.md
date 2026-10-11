@@ -567,10 +567,13 @@ server = CallbackServer(group_id=1, secret="s3cret")
 assert server.accepts(event)   # False, если secret не совпал
 ```
 
-## Дедупликация `event_id`
+## Дедупликация
 
-Каждый `event_id` обрабатывается один раз (кольцевой буфер на 200 записей —
-`DEFAULT_DEDUP_SIZE`). Размер настраивается.
+Каждый `event_id` обрабатывается один раз. Для `message_new` дополнительно
+учитывается идентичность сообщения (`peer_id` + `conversation_message_id`):
+VK присылает одно и то же сообщение дважды — вторым проходом дописывает
+ссылку-сниппет и меняет `event_id`; повтор отбрасывается. Кольцевой буфер —
+на 200 записей (`DEFAULT_DEDUP_SIZE`), размер настраивается.
 
 ```python
 server = CallbackServer(group_id=1, dedup_size=5000)
