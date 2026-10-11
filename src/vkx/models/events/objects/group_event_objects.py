@@ -250,25 +250,12 @@ class GroupOfficersEditObject(EventObject):
 
 
 class GroupSettingsChangesObject(EventObject):
-    access: GroupIsClosed | None = None
-    age_limits: GroupFullAgeLimits | None = None
-    description: str | None = None
-    enable_audio: GroupAudio | None = None
-    enable_market: GroupMarket | None = None
-    enable_photo: GroupPhotos | None = None
-    enable_status_default: GroupWall | None = None
-    enable_video: GroupVideo | None = None
-    public_category: int | None = None
-    public_subcategory: int | None = None
-    screen_name: str | None = None
-    title: str | None = None
-    website: str | None = None
-    old_value: Any
-    new_value: Any
+    old_value: int | str | None = None
+    new_value: int | str | None = None
 
 
 class GroupChangeSettingsObject(EventObject):
-    changes: GroupSettingsChangesObject | None = None
+    changes: dict[str, GroupSettingsChangesObject] | None = None
     user_id: int
 
 
