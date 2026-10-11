@@ -46,8 +46,9 @@ class CallbackServer:
     """Состояние одного колбек-сервера сообщества.
 
     Хранит ``group_id``, ожидаемый ``secret``, ``confirmation``-код и кольцевой
-    буфер недавних ``event_id``. ``handle``/``handle_event`` возвращают событие,
-    если оно принадлежит этому серверу, прошло проверку ``secret`` и не является
+    буфер недавних ключей дедупликации (``event_id`` и идентичность сообщения
+    для ``message_new``). ``handle``/``handle_event`` возвращают событие, если
+    оно принадлежит этому серверу, прошло проверку ``secret`` и не является
     дубликатом; иначе ``None``.
     """
 
@@ -82,11 +83,8 @@ class CallbackServer:
             return False
         return self.secret is None or event.secret == self.secret
 
-    def is_duplicate(self, event_id: str | int | None) -> bool:
-        """True, если ``event_id`` уже встречался; новый id запоминает."""
-        if event_id is None:
-            return False
-        key = str(event_id)
+    def _remember(self, key: str) -> bool:
+        """True, если ``key`` уже встречался; новый ключ запоминает."""
         if key in self._seen:
             self._seen.move_to_end(key)
             return True
@@ -94,6 +92,39 @@ class CallbackServer:
         if len(self._seen) > self.dedup_size:
             self._seen.popitem(last=False)
         return False
+
+    def is_duplicate(self, event_id: str | int | None) -> bool:
+        """True, если ``event_id`` уже встречался; новый id запоминает."""
+        if event_id is None:
+            return False
+        return self._remember(f"event:{event_id}")
+
+    @staticmethod
+    def _message_dedup_key(event: CallbackEvent) -> str | None:
+        """Ключ идентичности сообщения для ``message_new`` (иначе ``None``).
+
+        VK присылает ``message_new`` по одному и тому же сообщению дважды:
+        вторым проходом дописывает ссылку-сниппет и меняет ``event_id``.
+        Ключ ``peer_id`` + ``conversation_message_id`` ловит такой повтор.
+        """
+        if event.type is not CallbackEventType.MESSAGE_NEW:
+            return None
+        message = getattr(event.object, "message", None)
+        if message is None:
+            return None
+        return f"message:{message.peer_id}:{message.conversation_message_id}"
+
+    def is_duplicate_event(self, event: CallbackEvent) -> bool:
+        """True, если событие уже встречалось; новые ключи запоминает.
+
+        Учитывает ``event_id`` и (для ``message_new``) идентичность сообщения —
+        повторная доставка того же сообщения с дописанным сниппетом отбрасывается.
+        """
+        duplicate = self.is_duplicate(event.event_id)
+        message_key = self._message_dedup_key(event)
+        if message_key is not None and self._remember(message_key):
+            duplicate = True
+        return duplicate
 
     def handle(self, raw: RawCallback, /) -> CallbackEvent | None:
         """Разобрать и отфильтровать уведомление (чужое/поддельное/дубль -> None)."""
@@ -105,12 +136,12 @@ class CallbackServer:
             return None
         if event.type is CallbackEventType.CONFIRMATION:
             return event
-        if self.is_duplicate(event.event_id):
+        if self.is_duplicate_event(event):
             return None
         return event
 
     def clear_dedup(self) -> None:
-        """Забыть историю ``event_id`` (например, при перезапуске обработки)."""
+        """Забыть историю дедупликации (например, при перезапуске обработки)."""
         self._seen.clear()
 
 
