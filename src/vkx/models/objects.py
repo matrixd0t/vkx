@@ -7984,7 +7984,7 @@ class CallbackGroupChangeSettings(BaseModel):
     user_id: int = Field()
     """Property `CallbackGroupChangeSettings.user_id`."""
 
-    changes: "GroupSettingsChanges | None" = Field(
+    changes: "dict[str, GroupSettingsChangesIntegerValues | GroupSettingsChangesStringValues] | None" = Field(
         default=None,
     )
     """Property `CallbackGroupChangeSettings.changes`."""
