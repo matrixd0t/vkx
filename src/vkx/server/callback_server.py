@@ -26,6 +26,7 @@
 
 from __future__ import annotations
 
+import time
 from collections import OrderedDict
 from collections.abc import Iterable, Iterator
 from typing import TYPE_CHECKING
@@ -40,6 +41,16 @@ if TYPE_CHECKING:
 MAX_TITLE_LENGTH = 14
 MAX_SECRET_LENGTH = 50
 DEFAULT_DEDUP_SIZE = 200
+DEFAULT_CONTENT_DEDUP_TTL = 10.0
+
+COMMENT_NEW_TYPES = frozenset(
+    {
+        CallbackEventType.WALL_REPLY_NEW,
+        CallbackEventType.PHOTO_COMMENT_NEW,
+        CallbackEventType.VIDEO_COMMENT_NEW,
+        CallbackEventType.MARKET_COMMENT_NEW,
+    }
+)
 
 
 class CallbackServer:
@@ -50,6 +61,12 @@ class CallbackServer:
     для ``message_new``). ``handle``/``handle_event`` возвращают событие, если
     оно принадлежит этому серверу, прошло проверку ``secret`` и не является
     дубликатом; иначе ``None``.
+
+    Дополнительно (если ``content_dedup`` включён) работает дедупликация по
+    содержимому комментария: VK рождает на один комментарий к вложению два
+    события разных типов (например ``photo_comment_new`` и ``wall_reply_new``).
+    Совпадающие ``from_id`` + ``date`` + ``text`` в окне ``content_dedup_ttl``
+    секунд считаются дубликатом — независимо от типа события.
     """
 
     def __init__(
@@ -60,6 +77,8 @@ class CallbackServer:
         confirmation_code: str | None = None,
         server_id: int | None = None,
         dedup_size: int = DEFAULT_DEDUP_SIZE,
+        content_dedup: bool = True,
+        content_dedup_ttl: float = DEFAULT_CONTENT_DEDUP_TTL,
     ) -> None:
         if secret is not None and len(secret) > MAX_SECRET_LENGTH:
             raise ValueError(
@@ -67,12 +86,17 @@ class CallbackServer:
             )
         if dedup_size <= 0:
             raise ValueError("dedup_size: размер буфера дедупликации должен быть положительным")
+        if content_dedup_ttl <= 0:
+            raise ValueError("content_dedup_ttl: время жизни ключа должно быть положительным")
         self.group_id = group_id
         self.secret = secret
         self.confirmation_code = confirmation_code
         self.server_id = server_id
         self.dedup_size = dedup_size
+        self.content_dedup = content_dedup
+        self.content_dedup_ttl = content_dedup_ttl
         self._seen: OrderedDict[str, None] = OrderedDict()
+        self._content_seen: dict[str, float] = {}
 
     def __repr__(self) -> str:
         return f"CallbackServer(group_id={self.group_id}, server_id={self.server_id})"
@@ -114,16 +138,53 @@ class CallbackServer:
             return None
         return f"message:{message.peer_id}:{message.conversation_message_id}"
 
+    @staticmethod
+    def _comment_dedup_key(event: CallbackEvent) -> str | None:
+        """Общий отпечаток комментария (иначе ``None``).
+
+        VK присылает один и тот же комментарий к вложению поста двумя событиями
+        разных типов (``photo_comment_new`` / ``video_comment_new`` /
+        ``wall_reply_new`` / ``market_comment_new``) с разными ``id`` и
+        ``event_id``. Их связывает тройка ``from_id`` + ``date`` + ``text``.
+        """
+        if event.type not in COMMENT_NEW_TYPES:
+            return None
+        obj = event.object
+        from_id = getattr(obj, "from_id", None)
+        date = getattr(obj, "date", None)
+        if from_id is None or date is None:
+            return None
+        text = getattr(obj, "text", None)
+        return f"comment:{from_id}:{date!s}:{text!s}"
+
+    def _remember_content(self, key: str) -> bool:
+        """True, если ``key`` встречался в пределах TTL; иначе запоминает его."""
+        now = time.monotonic()
+        expires = self._content_seen.get(key)
+        if expires is not None and expires > now:
+            return True
+        self._content_seen[key] = now + self.content_dedup_ttl
+        expired = [k for k, exp in self._content_seen.items() if exp <= now]
+        for k in expired:
+            del self._content_seen[k]
+        return False
+
     def is_duplicate_event(self, event: CallbackEvent) -> bool:
         """True, если событие уже встречалось; новые ключи запоминает.
 
         Учитывает ``event_id`` и (для ``message_new``) идентичность сообщения —
         повторная доставка того же сообщения с дописанным сниппетом отбрасывается.
+        При ``content_dedup`` также ловит кросс-типовые дубли комментариев
+        (один комментарий к вложению приходит как два события разных типов).
         """
         duplicate = self.is_duplicate(event.event_id)
         message_key = self._message_dedup_key(event)
         if message_key is not None and self._remember(message_key):
             duplicate = True
+        if self.content_dedup:
+            comment_key = self._comment_dedup_key(event)
+            if comment_key is not None and self._remember_content(comment_key):
+                duplicate = True
         return duplicate
 
     def handle(self, raw: RawCallback, /) -> CallbackEvent | None:
@@ -143,6 +204,7 @@ class CallbackServer:
     def clear_dedup(self) -> None:
         """Забыть историю дедупликации (например, при перезапуске обработки)."""
         self._seen.clear()
+        self._content_seen.clear()
 
 
 class CallbackListener:
@@ -197,6 +259,8 @@ async def create_callback_server(
     secret: str | None = None,
     confirmation_code: str | None = None,
     dedup_size: int = DEFAULT_DEDUP_SIZE,
+    content_dedup: bool = True,
+    content_dedup_ttl: float = DEFAULT_CONTENT_DEDUP_TTL,
 ) -> CallbackServer:
     """Зарегистрировать колбек-сервер в сообществе и вернуть ``CallbackServer``.
 
@@ -206,6 +270,8 @@ async def create_callback_server(
     :param title: название сервера (не длиннее ``MAX_TITLE_LENGTH``).
     :param secret: секрет; если задан, передаётся в VK как ``secret_key`` (не длиннее ``MAX_SECRET_LENGTH``). Если не задан — секрет не ставится.
     :param confirmation_code: готовый код; если не задан — берётся через ``groups.getCallbackConfirmationCode``.
+    :param content_dedup: ловить кросс-типовые дубли комментариев (по содержимому).
+    :param content_dedup_ttl: окно (сек), в котором совпадение содержимого считается дублем.
     """
     if not title or len(title) > MAX_TITLE_LENGTH:
         raise ValueError(
@@ -230,10 +296,14 @@ async def create_callback_server(
         confirmation_code=confirmation_code,
         server_id=created.server_id,
         dedup_size=dedup_size,
+        content_dedup=content_dedup,
+        content_dedup_ttl=content_dedup_ttl,
     )
 
 
 __all__ = (
+    "COMMENT_NEW_TYPES",
+    "DEFAULT_CONTENT_DEDUP_TTL",
     "DEFAULT_DEDUP_SIZE",
     "MAX_SECRET_LENGTH",
     "MAX_TITLE_LENGTH",
