@@ -55,6 +55,7 @@ from .client import (
     scope_titles,
     validate_web_cookies,
 )
+from .models.events.callback_events import CallbackEvent
 from .server import (
     BotsLongPoll,
     CallbackListener,
@@ -83,6 +84,7 @@ __all__ = [
     "SCOPE_TITLES",
     "TRANSIENT_ERROR_CODES",
     "BotsLongPoll",
+    "CallbackEvent",
     "CallbackListener",
     "CallbackServer",
     "HttpClient",
