@@ -1,4 +1,5 @@
 import enum
+import re
 import sys
 import typing
 
@@ -10,6 +11,23 @@ PYDICT_APAPTER_TO_RAW_JSON = pydantic.TypeAdapter(dict[str, typing.Any])
 PYOBJECT_ADAPTER_TO_RAW_JSON = pydantic.TypeAdapter(typing.Any)
 
 Field = pydantic.Field
+
+_ALIAS_LINK_RE = re.compile(r"\[#alias\|[^|\]]+\|([^|\]]+)\]")
+
+
+def _expand_alias_links(value: typing.Any) -> typing.Any:
+    """Рекурсивно разворачивает строго ``[#alias|<...>|<url>]`` в ``url`` во всех строках."""
+    if isinstance(value, str):
+        if "[#alias|" not in value:
+            return value
+        return _ALIAS_LINK_RE.sub(r"\1", value)
+    if isinstance(value, dict):
+        return {key: _expand_alias_links(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_expand_alias_links(item) for item in value]
+    if isinstance(value, tuple):
+        return tuple(_expand_alias_links(item) for item in value)
+    return value
 
 
 def attachment_string(
@@ -79,6 +97,12 @@ else:
 
     class BaseModel(pydantic.BaseModel):
         model_config = pydantic.ConfigDict(frozen=True, defer_build=True)
+
+        @pydantic.model_validator(mode="before")
+        @classmethod
+        def _expand_alias_links_in_strings(cls, data: typing.Any) -> typing.Any:
+            """Разворачивает ``[#alias|...|url]`` в ``url`` во всех строковых полях."""
+            return _expand_alias_links(data)
 
         @classmethod
         def object_build(cls, localns, /):
