@@ -1,3 +1,7 @@
+import typing
+
+import pydantic
+
 from ..base_model import BaseModel, Field
 from ..objects import (
     Chat,
@@ -300,6 +304,18 @@ class SetChatPhotoResponseModel(BaseModel):
     )
 
 
+class MessagesSendResponseModel(BaseModel):
+    message_id: int = Field()
+    cmid: int | None = Field(default=None)
+
+    @pydantic.model_validator(mode="before")
+    @classmethod
+    def _from_legacy_response(cls, value: typing.Any) -> typing.Any:
+        if isinstance(value, int):
+            return {"message_id": value}
+        return value
+
+
 __all__ = (
     "AddChatUsersResponseModel",
     "CreateChatWithPeerIdsResponseModel",
@@ -327,6 +343,7 @@ __all__ = (
     "MessagesGetByIdResponseModel",
     "MessagesSearchExtendedResponseModel",
     "MessagesSearchResponseModel",
+    "MessagesSendResponseModel",
     "SearchConversationsExtendedResponseModel",
     "SearchConversationsResponseModel",
     "SetChatPhotoResponseModel",
