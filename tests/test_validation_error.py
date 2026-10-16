@@ -19,16 +19,27 @@ class FakeResponse:
 
 
 class FakeHttpClient:
+    def __init__(self):
+        self.calls = []
+
     async def post(self, url, **kwargs):
         method = url.rsplit("/", 1)[-1]
+        self.calls.append((method, kwargs["data"].copy()))
         if method == "users.get":
             payload = {"response": [{"id": 123, "first_name": "Test", "last_name": "User"}]}
         elif method == "account.getAppPermissions":
-            payload = {"response": 0}
+            payload = {"response": 4096}
         elif method == "execute":
             payload = {"response": [{"personal": []}], "execute_errors": []}
         elif method == "account.getProfileInfo":
             payload = {"response": {"personal": []}}
+        elif method == "messages.send":
+            payload = {
+                "response": {
+                    "message_id": len(self.calls),
+                    "cmid": len(self.calls) + 100,
+                }
+            }
         else:
             raise AssertionError(f"Unexpected VK method: {method}")
         return FakeResponse(payload)
@@ -68,6 +79,48 @@ class ValidationErrorTests(unittest.IsolatedAsyncioTestCase):
                     self.assertTrue(error.validation_error.errors())
                 finally:
                     await client.aclose()
+
+
+class MethodVersionTests(unittest.IsolatedAsyncioTestCase):
+    async def test_method_versions_apply_to_user_group_and_per_call_override(self):
+        http = FakeHttpClient()
+        client = VKClient(
+            tokens="test-token",
+            http_client=http,
+            interval=0,
+            batching=False,
+            pagination=False,
+            method_versions={"users.get": "5.131"},
+        )
+        try:
+            user_result = await client.messages.send(peer_id=123, message="user")
+            group_result = await client.messages.send(
+                peer_id=123,
+                message="group",
+                group_id=62391174,
+            )
+            await client.call(
+                "messages.send",
+                v="5.150",
+                peer_id=123,
+                message="explicit version",
+            )
+
+            self.assertEqual(user_result[0][0].cmid, 103)
+            self.assertEqual(group_result[0][0].cmid, 104)
+            versions = {method: data["v"] for method, data in http.calls}
+            self.assertEqual(versions["users.get"], "5.131")
+            self.assertEqual(versions["account.getAppPermissions"], "5.199")
+            self.assertEqual(
+                [data["v"] for method, data in http.calls if method == "messages.send"],
+                ["5.281", "5.281", "5.150"],
+            )
+            self.assertEqual(
+                [data.get("group_id") for method, data in http.calls if method == "messages.send"],
+                [None, "62391174", None],
+            )
+        finally:
+            await client.aclose()
 
 
 class PersonalModelTests(unittest.TestCase):

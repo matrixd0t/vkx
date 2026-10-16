@@ -1,6 +1,7 @@
 import unittest
 
 from vkx.models.methods.messages import MessagesCategory
+from vkx.models.responses.messages import MessagesSendResponseModel
 
 
 class FakeApi:
@@ -17,7 +18,7 @@ class FakeApi:
                     for peer_id in params["peer_ids"]
                 ]
             }
-        return {"response": call_id}
+        return {"response": {"message_id": call_id, "cmid": call_id + 100}}
 
 
 class MessagesSendTests(unittest.IsolatedAsyncioTestCase):
@@ -27,11 +28,15 @@ class MessagesSendTests(unittest.IsolatedAsyncioTestCase):
 
         result = await messages.send(peer_id=42, message="a" * 4001, random_id=7)
 
-        self.assertEqual(result, [[1, 2]])
+        self.assertEqual([item.message_id for item in result[0]], [1, 2])
+        self.assertEqual([item.cmid for item in result[0]], [101, 102])
         self.assertEqual([len(params["message"]) for _, params in api.calls], [4000, 1])
         self.assertEqual([params["random_id"] for _, params in api.calls], [7, 8])
         self.assertEqual("".join(params["message"] for _, params in api.calls), "a" * 4001)
-        self.assertEqual(await messages.send(peer_id=42, message="short"), [[3]])
+
+        short = await messages.send(peer_id=42, message="short")
+        self.assertEqual(short[0][0].message_id, 3)
+        self.assertEqual(short[0][0].cmid, 103)
 
     async def test_groups_bulk_results_by_peer_across_chunks(self):
         api = FakeApi()
@@ -48,6 +53,40 @@ class MessagesSendTests(unittest.IsolatedAsyncioTestCase):
             [len(params["message"]) for _, params in api.calls],
             [4000, 4000, 1],
         )
+
+    async def test_from_and_group_parameters_are_sent_to_vk(self):
+        api = FakeApi()
+        messages = MessagesCategory(api)
+
+        result = await messages.send(
+            peer_id=42,
+            message="test",
+            group_id=62391174,
+            _from="reforged",
+        )
+
+        self.assertEqual(result[0][0].message_id, 1)
+        self.assertEqual(result[0][0].cmid, 101)
+        self.assertEqual(
+            api.calls,
+            [
+                (
+                    "messages.send",
+                    {
+                        "peer_id": 42,
+                        "message": "test",
+                        "group_id": 62391174,
+                        "from": "reforged",
+                    },
+                )
+            ],
+        )
+
+    def test_legacy_integer_response_keeps_message_id(self):
+        result = MessagesSendResponseModel.model_validate(42)
+
+        self.assertEqual(result.message_id, 42)
+        self.assertIsNone(result.cmid)
 
 
 if __name__ == "__main__":

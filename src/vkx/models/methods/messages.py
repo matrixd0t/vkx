@@ -1075,7 +1075,9 @@ class MessagesCategory(BaseCategory):
                     | None
             ) = None,
             subscribe_id: int | None = None,
-    ) -> list[list[int]]: ...
+            *,
+            _from: Literal["reforged"] | None = None,
+    ) -> list[list[MessagesSendResponseModel]]: ...
 
     @typing.overload
     async def send(
@@ -1119,6 +1121,8 @@ class MessagesCategory(BaseCategory):
                     | None
             ) = None,
             subscribe_id: int | None = None,
+            *,
+            _from: Literal["reforged"] | None = None,
     ) -> list[list[SendPeerIdsResponseItem]]: ...
 
     @typing.overload
@@ -1163,6 +1167,8 @@ class MessagesCategory(BaseCategory):
                     | None
             ) = None,
             subscribe_id: int | None = None,
+            *,
+            _from: Literal["reforged"] | None = None,
     ) -> list[list[SendPeerIdsResponseItem]]: ...
 
     async def send(
@@ -1206,7 +1212,9 @@ class MessagesCategory(BaseCategory):
                     | None
             ) = None,
             subscribe_id: int | None = None,
-    ) -> list[list[SendPeerIdsResponseItem | int]]:
+            *,
+            _from: Literal["reforged"] | None = None,
+    ) -> list[list[SendPeerIdsResponseItem | MessagesSendResponseModel]]:
         """Sends a message.
 
         :param user_id: User ID (by default — current user).
@@ -1231,6 +1239,7 @@ class MessagesCategory(BaseCategory):
         :param content_source: JSON describing the content source in the message
         :param dont_parse_links:
         :param disable_mentions:
+        :param _from: Режим отправки VK; подтверждён вариант ``"reforged"``.
         :param intent:
         :param subscribe_id:
         """
@@ -1244,7 +1253,7 @@ class MessagesCategory(BaseCategory):
             if message
             else [message]
         )
-        responses: list[SendPeerIdsResponseItem | int] = []
+        responses: list[SendPeerIdsResponseItem | MessagesSendResponseModel] = []
         for index, chunk in enumerate(chunks):
             chunk_params = params.copy()
             chunk_params["message"] = chunk
@@ -1257,7 +1266,7 @@ class MessagesCategory(BaseCategory):
                     (("user_ids",), list[SendPeerIdsResponseItem]),
                     (("peer_ids",), list[SendPeerIdsResponseItem]),
                 ),
-                default=int,
+                default=MessagesSendResponseModel,
             )
             responses.extend(response if isinstance(response, list) else [response])
 
@@ -1268,7 +1277,7 @@ class MessagesCategory(BaseCategory):
                     peers.setdefault(response.peer_id, []).append(response)
             return list(peers.values())
 
-        return [[typing.cast(int, response) for response in responses]]
+        return [[typing.cast(MessagesSendResponseModel, response) for response in responses]]
 
     @typing.overload  # type: ignore
     async def get_chat(

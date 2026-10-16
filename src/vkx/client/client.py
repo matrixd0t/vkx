@@ -20,8 +20,8 @@ TokenSource), cookies (словари с p и remixsid) и sources (готовы
 HTTP: клиент работает с протоколом HttpClient (асинхронные get/post); httpx —
 опциональная зависимость, создаётся лениво, если свой клиент не передан.
 http_client / base_api_url / v задаются у клиента и могут быть переопределены
-для отдельного запроса (call); у клиента по умолчанию base_api_url=API_HOST,
-v=API_VERSION.
+для отдельного запроса (call); method_versions задаёт версии по умолчанию
+отдельных методов (messages.send использует v=5.281). Явный v вызова приоритетнее.
 
 Очередь и батчинг: call() фиксирует маршрут запроса (_Queued: кандидаты, HTTP-
 настройки и текущий источник) и кладёт его в очередь; PendingApiCall ждёт
@@ -76,6 +76,7 @@ MAX_BATCH_RETRIES = 2
 DEFAULT_MAX_RETRIES = 2
 DEFAULT_RETRY_BACKOFF = 0.5
 MAX_ADAPTIVE_BACKOFF = 30.0
+_DEFAULT_METHOD_VERSIONS = {"messages.send": "5.281"}
 
 CookieMap = Mapping[str, str]
 TokenInput = str | TokenSource
@@ -476,6 +477,7 @@ class VKClient(APICategories):
         http_client: HttpClient | None = None,
         base_api_url: str = API_HOST,
         v: str = API_VERSION,
+        method_versions: Mapping[str, str] | None = None,
         lang: int = 0,
         store: Store | None = None,
         interval: float | None = None,
@@ -513,6 +515,7 @@ class VKClient(APICategories):
         self._logger = logger or logging.getLogger(__name__)
         self._store = store
         self._v = v
+        self._method_versions = {**_DEFAULT_METHOD_VERSIONS, **(method_versions or {})}
         self._lang = lang
         self._interval = interval
         self._max_retries = max_retries
@@ -786,7 +789,7 @@ class VKClient(APICategories):
             raise VKError(f"{method}: источник {entry.source!r} не выдал токен", client=self)
         self._logger.debug("VK API %s через %r", method, entry.source)
         data = {
-            "v": v if v is not None else self._v,
+            "v": v if v is not None else self._method_versions.get(method, self._v),
             "lang": str(self._lang),
             "access_token": token,
         }
@@ -1210,7 +1213,7 @@ class VKClient(APICategories):
                 candidates,
                 http_client or self._http,
                 (base_api_url or self._base_api_url).rstrip("/"),
-                v if v is not None else self._v,
+                v if v is not None else self._method_versions.get(method, self._v),
                 batch=self._effective_batching() if batching is None else batching,
             )
         )

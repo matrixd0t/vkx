@@ -304,13 +304,20 @@ vk = VKClient(tokens="vk1.a....", max_retries=3, retry_backoff=0.5)
 ## Переопределение HTTP-настроек на один запрос
 
 `http_client`, `base_api_url` и `v` можно задать у клиента и переопределить на
-конкретный вызов.
+конкретный вызов. `method_versions` задаёт версии отдельных методов поверх общего
+`v`; встроенный default для `messages.send` — `5.281`. Явный `v` конкретного
+вызова имеет наивысший приоритет.
 
 ```python
-await vk.call("users.get", user_ids=[1], v="5.131", base_api_url="https://api.vk.com")
+vk = VKClient(
+    tokens="vk1.a....",
+    method_versions={"users.get": "5.131"},
+)
+await vk.call("users.get", user_ids=[1], v="5.140", base_api_url="https://api.vk.com")
 ```
 
-Запросы с разными настройками не попадают в один батч.
+При одиночном `messages.send` результат — вложенный список `MessagesSendResponseModel`
+с `message_id` и `cmid`. Запросы с разными настройками не попадают в один батч.
 
 ## Свой HTTP-клиент
 
