@@ -42,6 +42,43 @@ WALL_REPLY_NEW = {
     },
 }
 
+WALL_POST_NEW = {
+    "group_id": GROUP_ID,
+    "type": "wall_post_new",
+    "event_id": "fe68cc019c5749ec857c871c39fa1527fb08f7d4",
+    "v": "5.199",
+    "object": {
+        "inner_type": "wall_wallpost",
+        "can_edit": 1,
+        "created_by": 580106999,
+        "can_delete": 1,
+        "donut": {"is_donut": False},
+        "check_sign": True,
+        "comments": {"count": 0},
+        "marked_as_ads": 0,
+        "zoom_text": True,
+        "hash": "C8vKQKHxOaRMU3XRsNfExyPFblUX",
+        "postponed_id": 18,
+        "type": "post",
+        "post_author_data": {"author": 449209627, "publisher": 580106999},
+        "attachments": [],
+        "date": 1792156734,
+        "from_id": -GROUP_ID,
+        "header": {
+            "photo": {"source_id": -GROUP_ID},
+            "title": {"source_id": -GROUP_ID},
+            "descriptions": [],
+        },
+        "id": 19,
+        "is_favorite": False,
+        "reaction_set_id": "reactions",
+        "badges": {"type": 11, "id": 19, "owner_id": -GROUP_ID},
+        "owner_id": -GROUP_ID,
+        "post_type": "post",
+        "text": "предлагаю",
+    },
+}
+
 
 def _with(fields):
     raw = {**WALL_REPLY_NEW, "object": {**WALL_REPLY_NEW["object"], **fields}}
@@ -101,6 +138,23 @@ class ContentDedupTests(unittest.TestCase):
     def test_invalid_ttl_rejected(self):
         with self.assertRaises(ValueError):
             CallbackServer(GROUP_ID, content_dedup_ttl=0)
+
+
+class CallbackParsingTests(unittest.TestCase):
+    def test_wall_post_new_parses_current_payload_fields(self):
+        event = parse_callback(WALL_POST_NEW)
+
+        self.assertEqual(event.object.post_author_data.author, 449209627)
+        self.assertEqual(event.object.post_author_data.publisher, 580106999)
+        self.assertEqual(event.object.header.photo.source_id, -GROUP_ID)
+        self.assertEqual(event.object.header.title.source_id, -GROUP_ID)
+        self.assertEqual(event.object.header.descriptions, [])
+        self.assertEqual(event.object.badges.type, 11)
+        self.assertEqual(event.object.badges.id, 19)
+        self.assertEqual(event.object.reaction_set_id, "reactions")
+        self.assertTrue(event.object.check_sign)
+        self.assertTrue(event.object.zoom_text)
+        self.assertEqual(event.object.postponed_id, 18)
 
 
 if __name__ == "__main__":

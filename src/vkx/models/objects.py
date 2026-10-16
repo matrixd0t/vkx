@@ -18593,6 +18593,35 @@ class VideoFull(Video):
     type: 'VideoType | None' = None
 
 
+class WallpostAuthorData(BaseModel):
+    """Автор записи и пользователь, опубликовавший её."""
+
+    author: int | None = None
+    publisher: int | None = None
+
+
+class WallpostBadge(BaseModel):
+    """Бейдж записи на стене."""
+
+    type: int
+    id: int
+    owner_id: int
+
+
+class WallpostHeaderSource(BaseModel):
+    """Источник данных для заголовка записи."""
+
+    source_id: int | None = None
+
+
+class WallpostHeader(BaseModel):
+    """Данные заголовка записи на стене."""
+
+    photo: WallpostHeaderSource | None = None
+    title: WallpostHeaderSource | None = None
+    descriptions: list[typing.Any] | None = None
+
+
 class WallpostFull(CarouselBase, Wallpost):
     """Model: `WallpostFull`"""
     copy_history: 'list["WallpostFull"] | None' = Field(
@@ -18643,6 +18672,12 @@ class WallpostFull(CarouselBase, Wallpost):
         default=None,
     )
     """Hash for sharing."""
+    check_sign: bool | None = None
+    zoom_text: bool | None = None
+    post_author_data: WallpostAuthorData | None = None
+    header: WallpostHeader | None = None
+    reaction_set_id: str | None = None
+    badges: WallpostBadge | None = None
     type: "PostType | None" = Field(
         default=None,
     )
@@ -19678,12 +19713,16 @@ __all__ = (
     "Wallpost",
     "WallpostAttachment",
     "WallpostAttachmentType",
+    "WallpostAuthorData",
+    "WallpostBadge",
     "WallpostCommentsDonut",
     "WallpostCommentsDonutPlaceholder",
     "WallpostDonut",
     "WallpostDonutEditMode",
     "WallpostDonutPlaceholder",
     "WallpostFull",
+    "WallpostHeader",
+    "WallpostHeaderSource",
     "WallpostInnerType",
     "WallpostStat",
     "WidgetComment",
