@@ -571,6 +571,17 @@ class GroupsCategory(BaseCategory):
             default=GetCatalogInfoResponseModel,
         )
 
+    async def get_invite_link_preview(
+        self,
+        link: str,
+    ) -> GetInviteLinkPreviewResponseModel:
+        """Method `groups.getInviteLinkPreview()`
+
+        :param link: Ссылка-приглашение в сообщество (например, 'https://vk.ru/invite/abcdef') или сам код приглашения.
+        """
+
+        return await self._call("groups.getInviteLinkPreview", locals(), GetInviteLinkPreviewResponseModel)
+
     async def get_invited_users(
         self,
         group_id: int,

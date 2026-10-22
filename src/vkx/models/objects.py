@@ -19965,6 +19965,25 @@ class ClientInfoForBots(BaseModel):
     """client or user language id."""
 
 
+class InviteLink(BaseModel):
+    """Model: `InviteLink` (ссылка-приглашение в сообщество)."""
+
+    group_id: int | None = Field(
+        default=None,
+    )
+    """Идентификатор сообщества, в которое ведёт приглашение."""
+
+    id: int | None = Field(
+        default=None,
+    )
+    """Идентификатор приглашения."""
+
+    url: str | None = Field(
+        default=None,
+    )
+    """Ссылка-приглашение."""
+
+
 type SubscriptionsItem = GroupFull | UserFull
 
 if not TYPE_CHECKING:
