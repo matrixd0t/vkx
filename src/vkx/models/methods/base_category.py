@@ -12,6 +12,7 @@ import typing
 import pydantic
 
 from ..base_model import attachment_to_string
+from ..formatting import FormatItem
 
 Model = typing.TypeVar("Model")
 
@@ -48,6 +49,13 @@ class BaseCategory:
                 value = int(value)
             clean[name] = value
         return clean
+
+    def _format_message(self, message: str) -> tuple[str, list[FormatItem]]:
+        """Разобрать разметку в тексте сообщения (настройка клиента ``parse_format``)."""
+        formatter = getattr(self.api, "format_message", None)
+        if formatter is None:
+            return message, []
+        return formatter(message)
 
     @classmethod
     def get_set_params(cls, params: dict[str, typing.Any]) -> dict[str, typing.Any]:

@@ -40,6 +40,8 @@ class FakeHttpClient:
                     "cmid": len(self.calls) + 100,
                 }
             }
+        elif method == "messages.edit":
+            payload = {"response": 1}
         else:
             raise AssertionError(f"Unexpected VK method: {method}")
         return FakeResponse(payload)
@@ -105,6 +107,7 @@ class MethodVersionTests(unittest.IsolatedAsyncioTestCase):
                 peer_id=123,
                 message="explicit version",
             )
+            await client.messages.edit(peer_id=123, message_id=1, message="edit")
 
             self.assertEqual(user_result[0][0].cmid, 103)
             self.assertEqual(group_result[0][0].cmid, 104)
@@ -114,6 +117,10 @@ class MethodVersionTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(
                 [data["v"] for method, data in http.calls if method == "messages.send"],
                 ["5.281", "5.281", "5.150"],
+            )
+            self.assertEqual(
+                [data["v"] for method, data in http.calls if method == "messages.edit"],
+                ["5.281"],
             )
             self.assertEqual(
                 [data.get("group_id") for method, data in http.calls if method == "messages.send"],

@@ -165,8 +165,12 @@ print(user.first_name, user.last_name)
 ```
 
 ```python
-await vk.messages.send(peer_id=1, message="Привет", random_id=0)
+await vk.messages.send(peer_id=1, message="Привет")
 ```
+
+`random_id` по умолчанию `0` — VK не проверяет такой вызов на дубликаты, сообщение
+уходит всегда. Свой `random_id` можно передать явно, если нужна защита от повторной
+отправки.
 
 ## Сырой вызов `call`
 
@@ -305,8 +309,8 @@ vk = VKClient(tokens="vk1.a....", max_retries=3, retry_backoff=0.5)
 
 `http_client`, `base_api_url` и `v` можно задать у клиента и переопределить на
 конкретный вызов. `method_versions` задаёт версии отдельных методов поверх общего
-`v`; встроенный default для `messages.send` — `5.281`. Явный `v` конкретного
-вызова имеет наивысший приоритет.
+`v`; встроенный default для `messages.send` и `messages.edit` — `5.281`. Явный `v`
+конкретного вызова имеет наивысший приоритет.
 
 ```python
 vk = VKClient(
@@ -493,6 +497,124 @@ from vkx.models import KeyboardButton
 
 KeyboardButton.callback("Да", payload={"cmd": "yes"})
 KeyboardButton.link("Сайт", "https://vk.com")
+```
+
+---
+
+# Форматирование сообщений
+
+VK рисует жирный, курсив, подчёркивание и ссылки прямо в тексте сообщения.
+Разметка приходит отдельным параметром `format_data` — JSON-строкой
+`{"version": "1", "items": [{"type": "bold", "offset": 0, "length": 4}]}`.
+
+## Разбор разметки из текста
+
+`vkx` умеет разбирать HTML- и markdown-теги прямо в тексте сообщения: теги
+убираются из текста, а найденные участки превращаются в `format_data`.
+
+```python
+await vk.messages.send(
+    peer_id=1,
+    message="привет <b>мир</b>, *курсив* и [сайт](https://vk.com)",
+)
+```
+
+| Разметка | Что получится |
+|---|---|
+| `<b>`, `<strong>`, `**жирный**` | жирный |
+| `<i>`, `<em>`, `*курсив*`, `_курсив_` | курсив |
+| `<u>`, `<ins>`, `__подчёркнутый__` | подчёркнутый |
+| `<a href="...">`, `[текст](ссылка)` | ссылка |
+| `<br>` | перенос строки |
+| `<s>`, `<del>`, `~~зачёркнутый~~` | текст без тегов (VK зачёркивание не рисует) |
+
+Вложенность поддержана: `<b>жирный <i>и курсив</i></b>` даёт два перекрывающихся
+участка. Смещения считаются в code units UTF-16 — так же, как у веб-клиента VK,
+поэтому эмодзи занимают две позиции.
+
+Разбор включён по умолчанию и работает и в `vk.messages.send`, и в
+`vk.messages.edit`, и в сыром `vk.call("messages.send", ...)`.
+
+## Свой `format_data`
+
+Если в вызове метода передан `format_data` — разбор не выполняется, сообщение
+уходит как есть. Принимается JSON-строка, `dict` или модель `FormatData`.
+
+```python
+from vkx.models import FormatData, FormatItem
+
+await vk.messages.send(
+    peer_id=1,
+    message="своя разметка",
+    format_data=FormatData(items=[FormatItem(type="bold", offset=0, length=5)]),
+)
+```
+
+```python
+await vk.messages.send(
+    peer_id=1,
+    message="своя разметка",
+    format_data='{"version":"1","items":[{"type":"bold","offset":0,"length":5}]}',
+)
+```
+
+## Отключить разбор
+
+`parse_format=False` у клиента — сообщения уходят с тегами как есть.
+
+```python
+vk = VKClient(tokens="vk1.a....", parse_format=False)
+```
+
+На блок запросов:
+
+```python
+async with vk.overrides(parse_format=False):
+    await vk.messages.send(peer_id=1, message="<b>как есть</b>")
+```
+
+## Только HTML или только markdown
+
+`parse_markdown` и `parse_html` включают синтаксис по отдельности. Выключенный
+синтаксис остаётся обычным текстом: маркеры не снимаются и разметки по ним не
+будет.
+
+```python
+# markdown включён, HTML выключен
+vk = VKClient(tokens="vk1.a....", parse_html=False)
+await vk.messages.send(peer_id=1, message="**жир** и <b>тег</b>")
+# в VK уедет "жир и <b>тег</b>" — жирным сделано только "жир"
+```
+
+```python
+# HTML включён, markdown выключен
+vk = VKClient(tokens="vk1.a....", parse_markdown=False)
+await vk.messages.send(peer_id=1, message="**жир** и <b>тег</b>")
+# в VK уедет "**жир** и тег" — жирным сделано только "тег"
+```
+
+То же на блок запросов:
+
+```python
+async with vk.overrides(parse_markdown=False, parse_html=False):
+    await vk.messages.send(peer_id=1, message="<b>как есть</b> и **вот так**")
+```
+
+## Разобрать текст вручную
+
+```python
+from vkx import parse_format
+
+text, items = parse_format("привет <b>мир</b>")
+print(text)                                  # "привет мир"
+print([(item.type, item.offset) for item in items])   # [("bold", 7)]
+```
+
+Синтаксис можно отключить и на уровне парсера:
+
+```python
+text, items = parse_format("**жир** и <b>тег</b>", markdown=False, html=True)
+# text == "**жир** и тег"
 ```
 
 ---

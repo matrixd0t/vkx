@@ -1,6 +1,14 @@
 import typing
 from typing import Literal
 
+from ..formatting import (
+    FormatDataInput,
+    FormatItem,
+    format_data_json,
+    format_data_to_json,
+    slice_items,
+    u16_len,
+)
 from ..objects import *
 from ..objects import Chat, ChatFull, SendPeerIdsResponseItem, UsersFields
 from ..responses.base import OkResponseModel
@@ -8,6 +16,13 @@ from ..responses.messages import *  # type: ignore
 from .base_category import BaseCategory
 
 _MESSAGE_MAX_LENGTH = 4000
+
+
+def _chunk_items(items: list[FormatItem], text: str, index: int) -> list[FormatItem]:
+    """Элементы format_data для чанка сообщения (смещения — относительно чанка)."""
+    start = index * _MESSAGE_MAX_LENGTH
+    end = min(start + _MESSAGE_MAX_LENGTH, len(text))
+    return slice_items(items, u16_len(text[:start]), u16_len(text[:end]))
 
 
 class MessagesCategory(BaseCategory):
@@ -158,6 +173,7 @@ class MessagesCategory(BaseCategory):
             message: str | None = None,
             message_id: int | None = None,
             template: str | None = None,
+            format_data: FormatDataInput | None = None,
     ) -> bool:
         """Method `messages.edit()`
 
@@ -175,9 +191,22 @@ class MessagesCategory(BaseCategory):
         :param message: (Required if 'attachments' is not set.) Text of the message.
         :param message_id:
         :param template:
+        :param format_data: Разметка сообщения: JSON-строка, dict или `FormatData`.
+            Если не передан — текст разбирается на HTML/markdown-теги (настройка
+            клиента `parse_format`), и найденные теги становятся разметкой.
         """
 
-        return await self._call("messages.edit", locals(), bool)
+        params = locals().copy()
+        prepared = format_data_to_json(format_data)
+        params["format_data"] = prepared
+        text = params.get("message")
+        if prepared is None and isinstance(text, str) and text:
+            text, items = self._format_message(text)
+            params["message"] = text
+            if items:
+                params["format_data"] = format_data_json(items)
+
+        return await self._call("messages.edit", params, bool)
 
     async def edit_chat(
             self,
@@ -1037,7 +1066,7 @@ class MessagesCategory(BaseCategory):
     async def send(  # type: ignore
             self,
             user_id: int | None = None,
-            random_id: int | None = None,
+            random_id: int | None = 0,
             peer_id: int | None = None,
             peer_ids: None = None,
             domain: str | None = None,
@@ -1075,6 +1104,7 @@ class MessagesCategory(BaseCategory):
                     | None
             ) = None,
             subscribe_id: int | None = None,
+            format_data: FormatDataInput | None = None,
             *,
             _from: Literal["reforged"] | None = None,
     ) -> list[list[MessagesSendResponseModel]]: ...
@@ -1083,7 +1113,7 @@ class MessagesCategory(BaseCategory):
     async def send(
             self,
             user_id: int | None = None,
-            random_id: int | None = None,
+            random_id: int | None = 0,
             peer_id: int | None = None,
             peer_ids: list[int] | None = None,
             domain: str | None = None,
@@ -1121,6 +1151,7 @@ class MessagesCategory(BaseCategory):
                     | None
             ) = None,
             subscribe_id: int | None = None,
+            format_data: FormatDataInput | None = None,
             *,
             _from: Literal["reforged"] | None = None,
     ) -> list[list[SendPeerIdsResponseItem]]: ...
@@ -1129,7 +1160,7 @@ class MessagesCategory(BaseCategory):
     async def send(
             self,
             user_id: int | None = None,
-            random_id: int | None = None,
+            random_id: int | None = 0,
             peer_id: int | None = None,
             peer_ids: list[int] = ...,
             domain: str | None = None,
@@ -1167,6 +1198,7 @@ class MessagesCategory(BaseCategory):
                     | None
             ) = None,
             subscribe_id: int | None = None,
+            format_data: FormatDataInput | None = None,
             *,
             _from: Literal["reforged"] | None = None,
     ) -> list[list[SendPeerIdsResponseItem]]: ...
@@ -1174,7 +1206,7 @@ class MessagesCategory(BaseCategory):
     async def send(
             self,
             user_id: int | None = None,
-            random_id: int | None = None,
+            random_id: int | None = 0,
             peer_id: int | None = None,
             peer_ids: list[int] | None = None,
             domain: str | None = None,
@@ -1212,13 +1244,15 @@ class MessagesCategory(BaseCategory):
                     | None
             ) = None,
             subscribe_id: int | None = None,
+            format_data: FormatDataInput | None = None,
             *,
             _from: Literal["reforged"] | None = None,
     ) -> list[list[SendPeerIdsResponseItem | MessagesSendResponseModel]]:
         """Sends a message.
 
         :param user_id: User ID (by default — current user).
-        :param random_id: Unique identifier to avoid resending the message.
+        :param random_id: Уникальный идентификатор, чтобы избежать повторной отправки
+            сообщений. По умолчанию ``0`` — VK не проверяет такой вызов на дубликаты.
         :param peer_id: Destination ID. "For user: 'User ID', e.g. '12345'. For chat: '2000000000' + 'chat_id', e.g. '2000000001'. For community: '- community ID', e.g. '-12345'. "
         :param peer_ids: IDs of message recipients. (See peer_id)
         :param domain: User's short address (for example, 'illarionov').
@@ -1242,23 +1276,39 @@ class MessagesCategory(BaseCategory):
         :param _from: Режим отправки VK; подтверждён вариант ``"reforged"``.
         :param intent:
         :param subscribe_id:
+        :param format_data: Разметка сообщения: JSON-строка, dict или `FormatData`.
+            Если не передан — текст разбирается на HTML/markdown-теги (настройка
+            клиента `parse_format`), и найденные теги становятся разметкой.
         """
 
         params = locals().copy()
+        prepared = format_data_to_json(format_data)
+        params["format_data"] = prepared
+        text = params.get("message")
+        items: list[FormatItem] = []
+        if prepared is None and isinstance(text, str) and text:
+            text, items = self._format_message(text)
+            params["message"] = text
         chunks = (
             [
-                message[index:index + _MESSAGE_MAX_LENGTH]
-                for index in range(0, len(message), _MESSAGE_MAX_LENGTH)
+                text[index:index + _MESSAGE_MAX_LENGTH]
+                for index in range(0, len(text), _MESSAGE_MAX_LENGTH)
             ]
-            if message
-            else [message]
+            if text
+            else [text]
         )
         responses: list[SendPeerIdsResponseItem | MessagesSendResponseModel] = []
         for index, chunk in enumerate(chunks):
             chunk_params = params.copy()
             chunk_params["message"] = chunk
+            if items:
+                chunk_items = _chunk_items(items, text, index)
+                chunk_params["format_data"] = (
+                    format_data_json(chunk_items) if chunk_items else None
+                )
             if random_id is not None and index:
-                chunk_params["random_id"] = random_id + index
+                # random_id=0 — «не проверять на дубликаты»: все куски остаются нулями
+                chunk_params["random_id"] = random_id + index if random_id else 0
             response = await self._call(
                 "messages.send",
                 chunk_params,

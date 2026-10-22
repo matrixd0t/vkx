@@ -11,6 +11,7 @@ user Long Poll (``user_events``) тоже реэкспортируются зд�
 ``vkx.models.events.objects.user_event_objects`` и ``vkx.models.events.user_events``.
 """
 
+from . import formatting as _formatting  # noqa: I001
 from . import objects as _objects  # noqa: I001
 from .categories import APICategories
 from .events import *
@@ -29,6 +30,7 @@ from .events.objects.group_event_objects import *
 from .events.user_events import *
 from .events.bot_events import *
 from .events.callback_events import *
+from .formatting import *
 from .objects import *
 
 API_URL: str = "https://api.vk.ru/method/"
@@ -47,6 +49,7 @@ __all__ = [  # noqa: PLE0604
     "GroupEventType",
     "UserEventType",
     *_objects.__all__,
+    *_formatting.__all__,
     *_bot_events.__all__,
     *_callback_events.__all__,
     *_user_events.__all__,
