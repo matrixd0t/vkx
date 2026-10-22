@@ -39,6 +39,14 @@ from .pagination import (
     merge_pages,
     paginate,
 )
+from .resolve import (
+    DEFAULT_RESOLVE_CACHE_SIZE,
+    DEFAULT_RESOLVE_CACHE_TTL,
+    RESOLVE_CACHE,
+    ResolveCache,
+    ResolvedMention,
+    ResolveResult,
+)
 from .storage import (
     JSONStore,
     MemoryStore,
@@ -70,6 +78,8 @@ __all__ = [
     "DEFAULT_GROUP_INTERVAL",
     "DEFAULT_MAX_RETRIES",
     "DEFAULT_PAGINATION_LIMIT",
+    "DEFAULT_RESOLVE_CACHE_SIZE",
+    "DEFAULT_RESOLVE_CACHE_TTL",
     "DEFAULT_RETRY_BACKOFF",
     "DEFAULT_USER_INTERVAL",
     "EXECUTE_BATCH_LIMIT",
@@ -77,6 +87,7 @@ __all__ = [
     "INVALID_TOKEN_CODE",
     "PAGINATION_LIMITS",
     "RATE_LIMIT_ERROR_CODES",
+    "RESOLVE_CACHE",
     "SCOPE_TITLES",
     "TRANSIENT_ERROR_CODES",
     "HttpClient",
@@ -84,6 +95,9 @@ __all__ = [
     "JSONStore",
     "MemoryStore",
     "PendingApiCall",
+    "ResolveCache",
+    "ResolveResult",
+    "ResolvedMention",
     "SQLiteStore",
     "State",
     "StaticTokenSource",

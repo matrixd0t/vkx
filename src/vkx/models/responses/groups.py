@@ -19,6 +19,7 @@ from ..objects import (
     GroupVideo,
     GroupWall,
     GroupWiki,
+    InviteLink,
     MemberRole,
     OnlineStatusType,
     OwnerXtrBanInfo,
@@ -94,6 +95,18 @@ class GetInvitesExtendedResponseModel(BaseModel):
 class GetInvitesResponseModel(BaseModel):
     count: int = Field()
     items: list["GroupFull"] = Field()
+
+
+class GetInviteLinkPreviewResponseModel(BaseModel):
+    invite_link: "InviteLink | None" = Field(
+        default=None,
+    )
+    """Ссылка-приглашение, если ссылка существует."""
+
+    hidden_preview_reason: str | None = Field(
+        default=None,
+    )
+    """Почему превью приглашения скрыто (если превью нет)."""
 
 
 class GetMembersFieldsResponseModel(BaseModel):
@@ -308,6 +321,7 @@ __all__ = (
     "GetCallbackServersResponseModel",
     "GetCatalogInfoExtendedResponseModel",
     "GetCatalogInfoResponseModel",
+    "GetInviteLinkPreviewResponseModel",
     "GetInvitedUsersResponseModel",
     "GetInvitesExtendedResponseModel",
     "GetInvitesResponseModel",

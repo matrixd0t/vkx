@@ -50,7 +50,7 @@ import time
 from collections import deque
 from collections.abc import AsyncIterator, Awaitable, Callable, Iterable, Mapping
 from dataclasses import dataclass
-from typing import Any, Self
+from typing import Any, Self, overload
 
 from ..models.categories import APICategories
 from ..models.formatting import (
@@ -61,6 +61,16 @@ from ..models.formatting import (
 from . import pagination
 from .errors import VKError, VKTimeoutError, VKTransportError, build_error
 from .http import API_HOST, API_VERSION, HttpClient, create_http_client
+from .resolve import (
+    DEFAULT_RESOLVE_CACHE_SIZE,
+    DEFAULT_RESOLVE_CACHE_TTL,
+    RESOLVE_CACHE,
+    RESOLVE_GROUP_FIELDS,
+    RESOLVE_USER_FIELDS,
+    ResolveCache,
+    ResolveResult,
+    resolve_texts,
+)
 from .storage import Store
 from .tokens import (
     ALL_SCOPES,
@@ -509,6 +519,8 @@ class VKClient(APICategories):
         parse_format: bool = True,
         parse_markdown: bool = True,
         parse_html: bool = True,
+        resolve_cache_ttl: float = DEFAULT_RESOLVE_CACHE_TTL,
+        resolve_cache_size: int = DEFAULT_RESOLVE_CACHE_SIZE,
     ) -> None:
         if interval is not None and interval < 0:
             raise ValueError("interval: пауза между запросами не может быть отрицательной")
@@ -518,6 +530,10 @@ class VKClient(APICategories):
             raise ValueError("retry_backoff: базовая пауза не может быть отрицательной")
         if timeout is not None and timeout <= 0:
             raise ValueError("timeout: ожидание ответа должно быть положительным")
+        if resolve_cache_ttl < 0:
+            raise ValueError("resolve_cache_ttl: ttl кеша не может быть отрицательным")
+        if resolve_cache_size < 0:
+            raise ValueError("resolve_cache_size: размер кеша не может быть отрицательным")
         cookie_dicts = _iter_cookie_dicts(cookies)
         token_sources = _token_sources(tokens, store=store)
         explicit_sources = _source_objects(sources)
@@ -551,6 +567,8 @@ class VKClient(APICategories):
         self._parse_format = parse_format
         self._parse_markdown = parse_markdown
         self._parse_html = parse_html
+        self._resolve_cache_ttl = float(resolve_cache_ttl)
+        self._resolve_cache_size = int(resolve_cache_size)
         self._probed = False
         self._probe_lock = asyncio.Lock()
         self._queue: deque[_Queued] = deque()
@@ -998,6 +1016,34 @@ class VKClient(APICategories):
             self._logger.warning("VK API %s: ошибка %s — %s", method, code, message)
             raise api_error
 
+    async def execute_raw(self, code: str) -> tuple[Any, list[dict[str, Any]]]:
+        """Выполнить VKScript-код одним запросом к VK API (метод execute).
+
+        Возвращает тело ответа (список результатов вызовов) и ошибки отдельных
+        вызовов внутри execute. Запрос идёт через очередь клиента, поэтому
+        учитывает паузу между запросами и правила выбора токена.
+
+        Используется там, где важно уложиться в один запрос к VK API (см.
+        ``vk.resolve``).
+        """
+        result, raw_response, _ = await self.call(
+            "execute",
+            code=code,
+            batching=True,
+            _with_metadata=True,
+        )
+        errors: list[dict[str, Any]] = []
+        if raw_response:
+            try:
+                payload = json.loads(raw_response)
+            except ValueError:
+                payload = None
+            if isinstance(payload, dict):
+                raw_errors = payload.get("execute_errors")
+                if isinstance(raw_errors, list):
+                    errors = [error for error in raw_errors if isinstance(error, dict)]
+        return result, errors
+
     # ---------- свойства ----------
 
     @property
@@ -1023,6 +1069,42 @@ class VKClient(APICategories):
     def http_client(self) -> HttpClient:
         """HTTP-клиент клиента — для запросов вне VK API (LongPoll, загрузки и т.п.)."""
         return self._http
+
+    @property
+    def logger(self) -> logging.Logger:
+        """Логгер клиента (переданный при создании или логгер пакета)."""
+        return self._logger
+
+    @property
+    def resolve_cache(self) -> ResolveCache:
+        """Общий на приложение кеш резолва (упоминаний пользователей и сообществ)."""
+        return RESOLVE_CACHE
+
+    @property
+    def resolve_cache_ttl(self) -> float:
+        """TTL кеша резолва у клиента (секунды): запись старше TTL обновляется.
+
+        Сами записи живут в общем кеше: TTL задаёт только клиент, который их читает.
+        ``0`` — кеш выключен (каждый раз запрос к API).
+        """
+        return self._resolve_cache_ttl
+
+    @resolve_cache_ttl.setter
+    def resolve_cache_ttl(self, value: float) -> None:
+        if value < 0:
+            raise ValueError("resolve_cache_ttl: ttl кеша не может быть отрицательным")
+        self._resolve_cache_ttl = float(value)
+
+    @property
+    def resolve_cache_size(self) -> int:
+        """Сколько записей клиент держит в общем кеше резолва (лишние вытесняются)."""
+        return self._resolve_cache_size
+
+    @resolve_cache_size.setter
+    def resolve_cache_size(self, value: int) -> None:
+        if value < 0:
+            raise ValueError("resolve_cache_size: размер кеша не может быть отрицательным")
+        self._resolve_cache_size = int(value)
 
     @property
     def interval(self) -> float:
@@ -1347,6 +1429,86 @@ class VKClient(APICategories):
         return result
 
     api = call
+
+    @overload
+    async def resolve(
+        self,
+        value: str,
+        *,
+        user_fields: str = ...,
+        group_fields: str = ...,
+    ) -> ResolveResult: ...
+
+    @overload
+    async def resolve(
+        self,
+        value: list[str],
+        *,
+        user_fields: str = ...,
+        group_fields: str = ...,
+    ) -> list[ResolveResult]: ...
+
+    @overload
+    async def resolve(
+        self,
+        value: dict[str, str],
+        *,
+        user_fields: str = ...,
+        group_fields: str = ...,
+    ) -> dict[str, ResolveResult]: ...
+
+    async def resolve(
+        self,
+        value: str | list[str] | dict[str, str],
+        *,
+        user_fields: str = RESOLVE_USER_FIELDS,
+        group_fields: str = RESOLVE_GROUP_FIELDS,
+    ) -> ResolveResult | list[ResolveResult] | dict[str, ResolveResult]:
+        """Найти в тексте пользователей и сообщества и вернуть их данными.
+
+        На вход — строка, список строк или словарь ``{ключ: текст}``; на выход
+        тот же вид: результат для строки, список результатов для списка, словарь
+        с теми же ключами для словаря.
+
+        Упоминания собираются из ссылок VK (``vk.com/durov``, ``vk.com/id123``,
+        ``vk.com/club123``), ссылок-приглашений (``vk.com/invite/CODE`` — резолвится
+        методом ``groups.getInviteLinkPreview``), упоминаний в скобках
+        (``[id123|@Имя]``) и @упоминаний (``@durov``). Все запросы уходят одним
+        ``execute``: если вызовов не больше 25 — это один запрос к VK API.
+
+        Результаты берутся из общего кеша (``vk.resolve_cache``): ``resolve_cache_ttl``
+        задаёт, когда запись протухает, ``resolve_cache_size`` — сколько записей
+        держать в общем кеше (кеш общий для всех клиентов процесса).
+        """
+        if isinstance(value, str):
+            texts = [value]
+        elif isinstance(value, Mapping):
+            texts = []
+            for key, item in value.items():
+                if not isinstance(item, str):
+                    raise TypeError(f"resolve: значение {key!r} должно быть строкой")
+                texts.append(item)
+        elif isinstance(value, (list, tuple)):
+            texts = []
+            for item in value:
+                if not isinstance(item, str):
+                    raise TypeError("resolve: элементы списка должны быть строками")
+                texts.append(item)
+        else:
+            raise TypeError("resolve: ожидалась строка, список строк или словарь")
+        results = await resolve_texts(
+            self,
+            texts,
+            ttl=self._resolve_cache_ttl,
+            max_size=self._resolve_cache_size,
+            user_fields=user_fields,
+            group_fields=group_fields,
+        )
+        if isinstance(value, str):
+            return results[0]
+        if isinstance(value, Mapping):
+            return dict(zip(value.keys(), results, strict=True))
+        return list(results)
 
     async def _call_single(self, item: _Queued) -> None:
         """Прямой вызов метода без ``execute`` (для запросов с выключенным батчингом)."""

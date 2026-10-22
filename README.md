@@ -5,44 +5,61 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 [![CI](https://github.com/matrixd0t/vkx/actions/workflows/ci.yml/badge.svg)](https://github.com/matrixd0t/vkx/actions/workflows/ci.yml)
 
-Библиотека для работы с VK API от Точки aka d0tmatrix. В каком-то смысле альтернатива бутылке.
+Библиотека для работы с VK API. Асинхронный клиент с выбором токена по правам,
+батчингом через `execute`, автопагинацией, типизированными методами и
+Python-моделями ответов. Плюс серверный блок (Callback API / Long Poll) и
+адаптеры для популярных веб-фреймворков.
 
-- **Клиент** — `vkx.VKClient`: выбор токена по правам (scope), привязка к владельцу,
-  очередь и батчинг `execute` (вкл. по умолчанию, отключается), автопагинация
-  (тоже вкл. по умолчанию), повторы, троттлинг, капча, таймауты.
-- **Типы** — `vkx.models`: VK-объекты (`Photo`, `Message`, `Keyboard`, …),
-  модели ответов и события Callback/Long Poll. Поддерживаются вручную.
-- **Типизированные методы** — категории `vk.users.*`, `vk.messages.*`,
-  `vk.board.*`, `vk.photos.*` и т.д. с строго типизированными аргументами.
-- **Загрузка файлов** — `vk.upload.*`: фото, документы, голосовые.
-- **Сервер** — `parse_callback`, `CallbackServer`/`CallbackListener`,
-  `LongPoll`, `BotsLongPoll`.
-- **Адаптеры** — готовые роуты Callback API для FastAPI, Starlette, aiohttp,
-  Sanic, Flask, Django (фреймворки опциональны).
+## Киллер-фичи
+
+- **Python-модели ответов** — каждый метод возвращает pydantic-модель
+  (`UserFull`, `Message`, `GroupFull`, `Keyboard`…). Всё типизировано, IDE
+  подсказывает поля, валидация на границе API. Модели поддерживаются вручную.
+- **Батчинг `execute`** — десятки вызовов сворачиваются в один HTTP-запрос к VK
+  API (лимит 25 вызовов / 260 КБ кода на батч). Снаружи `await vk.call(...)` —
+  как обычный одиночный вызов.
+- **Автопагинация** — методы с `offset`/`count` сами добирают страницы и
+  склеивают тело (`count`, `items`, `profiles`, `groups`). `vk.database.get_countries(count=1500)`
+  вернёт 1500 стран одним вызовом.
+- **Cookie-авторизация** — `VKClient(cookies={"p": ..., "remixsid": ...})`
+  получает веб-токен и обновляет его сам; токен и владелец сохраняются в Store.
+- **`resolve()`** — по тексту находит упоминания пользователей и сообществ
+  (`vk.com/durov`, `vk.com/id123`, `@durov`, `[id123|@Имя]`, приглашения
+  `vk.com/invite/CODE`) и возвращает их данные одним запросом. Общий кеш на
+  приложение с TTL и лимитом размера.
+- **Выбор токена по scope** — несколько источников (статичные токены, cookies,
+  готовые `TokenSource`), клиент сам выбирает подходящий по правам метода и
+  отбрасывает источники чужого владельца при `probe`.
+- **Клавиатуры** — `Keyboard`/`KeyboardButton`/`Button`: immutable, разбор и
+  сборка, `keyboard.to_json()` для `messages.send`.
+- **Разметка сообщений** — HTML/markdown в `message` разбирается в `format_data`
+  VK (смещения в UTF-16 code units).
+- **Серверный блок** — `parse_callback`, `CallbackServer`/`CallbackListener`,
+  `LongPoll`, `BotsLongPoll` + адаптеры для FastAPI, Starlette, aiohttp, Sanic,
+  Flask, Django.
+- **Загрузка файлов** — `vk.upload.*`: фото, документы, голосовые (multipart
+  напрямую HTTP-клиентом, save через очередь).
 
 ## Установка
 
 ```bash
 pip install "vkx[http]"
 ```
-Требуется Python ≥ 3.12.
-`httpx` подключается лениво: если передать свой HTTP-клиент, `httpx` не нужен.
-Фреймворки для адаптеров в зависимости `vkx` не входят — их вы ставите сами.
+
+Требуется Python ≥ 3.12. `httpx` подключается лениво: если передать свой
+HTTP-клиент, `httpx` не нужен. Фреймворки для адаптеров в `vkx` не входят.
 
 ## Быстрый старт
 
 ```python
 import asyncio
-
 from vkx import VKClient
-
 
 async def main() -> None:
     vk = VKClient(tokens="vk1.a....")
-    owner = (await vk.users.get())[0]      # типизированный метод
+    owner = (await vk.users.get())[0]
     print(vk.user_id, owner.first_name)
     await vk.aclose()
-
 
 asyncio.run(main())
 ```
@@ -51,952 +68,168 @@ asyncio.run(main())
 токены (`probe`) и определяет, кому они принадлежат — пользователю или
 сообществу.
 
----
+## Клиент
 
-# Клиент
+### Создание
 
-## Создание клиента
-
-Передать можно статичный токен, веб-cookies, готовые источники или всё вместе.
+Передать можно статичный токен, веб-cookies, готовые источники или всё вместе:
 
 ```python
 from vkx import VKClient
 
 vk = VKClient(tokens="vk1.a....")
+vk = VKClient(cookies={"p": "...", "remixsid": "..."})
+vk = VKClient(tokens=["tok_a", "tok_b"], cookies=[{"p": ..., "remixsid": ...}])
 ```
 
-## Конструктор не ходит в сеть
+Конструктор не ходит в сеть; сеть трогается при первом `call()` или явном
+`await vk.probe()`.
 
-`VKClient(...)` только сохраняет настройки. Сеть трогается при первом `call()`
-или явном `await vk.probe()`.
-
-```python
-vk = VKClient(tokens="vk1.a....")
-print(vk.user_id)        # None — ещё не опрошен
-await vk.probe()
-print(vk.user_id)        # 123456
-```
-
-## Владелец: пользователь или сообщество
-
-Тип владельца определяется автоматически. Для сообщества `user_id`
-отрицательный, а `group_id` — положительный.
+### Владелец и права
 
 ```python
 await vk.probe()
-if vk.is_group:
-    print("сообщество", vk.group_id)
-else:
-    print("пользователь", vk.user_id)
+print(vk.user_id, vk.is_group, vk.group_id)   # user_id < 0 — сообщество
+print(vk.permissions)                          # ['Сообщения', 'Друзья', ...]
 ```
 
-## Права клиента
-
-`scope` — битовая маска доступных категорий методов, `permissions` — их
-человекочитаемые названия.
+### Батчинг (по умолчанию включён)
 
 ```python
-await vk.probe()
-print(vk.permissions)   # ['Сообщения', 'Друзья', ...]
-print(vk.scope)         # 2 | 4096 | ...
+# эти три вызова уйдут одним execute-запросом
+a = await vk.call("users.get", user_ids=1)
+b = await vk.call("users.get", user_ids=2)
+c = await vk.call("users.get", user_ids=3)
+# отключить на один запрос:
+await vk.call("users.get", user_ids=1, batching=False)
 ```
 
-## Токен из веб-cookies
+### Автопагинация (по умолчанию включена)
 
-Вместо токена можно передать cookies веб-сессии (`p` и `remixsid`): клиент сам
-получит веб-токен и будет обновлять его.
+```python
+# доберёт страницы сам, вернёт 1500 стран
+countries = await vk.database.get_countries(count=1500)
+# выключить: async with vk.overrides(pagination=False): ...
+```
+
+### Cookie-авторизация
 
 ```python
 vk = VKClient(cookies={"p": "...", "remixsid": "..."})
 ```
 
-Нужные cookie проверяются сразу, `WebCookieSource` импортировать не требуется.
+Веб-токен получается и обновляется автоматически; токен и владелец сохраняются
+в Store (по умолчанию SQLite в `.vkx/vkx.sqlite`).
 
-## Несколько источников
-
-Можно смешивать токены, cookies и готовые источники. Источники с чужим
-владельцем отбрасываются, нерабочие — логируются и пропускаются.
+### `resolve()`
 
 ```python
-from vkx import StaticTokenSource, VKClient, WebCookieSource
+result = await vk.resolve("Привет @durov, см. vk.com/club123 и vk.com/invite/abc")
+print(result.users)    # [UserFull(...)]
+print(result.groups)   # [GroupFull(...)]
+print(result.mentions) # [ResolvedMention(...), ...]
+```
 
-vk = VKClient(
-    tokens=["vk1.a....", "vk1.b...."],
-    cookies={"p": "...", "remixsid": "..."},
-    sources=[StaticTokenSource("vk1.c....", label="резерв")],
+Принимает строку, список строк или словарь `{ключ: текст}` — возвращает тот же
+вид. Все запросы идут одним `execute`. Кеш общий на приложение:
+
+```python
+vk.resolve_cache_ttl = 1800   # секунды (0 — выключить)
+vk.resolve_cache_size = 500   # записей в общем кеше
+```
+
+### Ошибки, повторы, таймауты
+
+- `max_retries` / `retry_backoff` — повторы транзиентных сбоев (сеть, HTTP 5xx/429,
+  коды 1/6/9/10/29) с экспоненциальной паузой.
+- `timeout` — ограничение ожидания ответа для `call()` (переопределяется на запрос).
+- `captcha_handler` — обработчик капчи (код 14).
+- `interval` — пауза между HTTP-запросами (по умолчанию 0.5 с для пользователя,
+  0.1 с для сообщества).
+- `await vk.drain()` — отправить очередь немедленно; `await vk.aclose(drain=True)` —
+  сначала отправить очередь, потом закрыть.
+
+### Загрузка файлов
+
+```python
+photo = await vk.upload.photo_to_wall(data, peer_id=123)
+await vk.messages.send(peer_id=123, attachment=photo.as_att)
+```
+
+## Типы и модели
+
+`vkx.models` — VK-объекты, модели ответов и события. Типизированные методы
+(`vk.users.get`, `vk.messages.send`, …) возвращают pydantic-модели из
+`vkx.models.responses` / `vkx.models.objects`. Клавиатуры:
+
+```python
+from vkx.models.objects import Keyboard, KeyboardButton
+
+kb = Keyboard(
+    [KeyboardButton.callback("ОК", payload={"a": 1})],
+    inline=True,
 )
+await vk.messages.send(peer_id=123, message="выбор", keyboard=kb.to_json())
 ```
 
-## Хранилище токенов
-
-С `store` введённые токены и владелец запоминаются. `StaticTokenSource` можно
-создать без токена — он восстановится из базы. При ошибке «токен недействителен»
-(код 5) запись удаляется.
+Разметка сообщений (HTML/markdown → `format_data` VK):
 
 ```python
-from vkx import SQLiteStore, StaticTokenSource, VKClient
+from vkx.models.formatting import parse_format
 
-store = SQLiteStore("vk-state.sqlite")
-vk = VKClient(tokens=["vk1.a...."], store=store)   # токен запомнится
+text, items = parse_format("**жирный** и _курсив_")
 ```
 
+## Серверный блок
+
+### Callback API
+
 ```python
-vk = VKClient(sources=[StaticTokenSource()], store=store)  # токен из store
+from vkx.server import parse_callback, CallbackServer, CallbackListener, create_callback_server
+
+event = parse_callback(raw_bytes)   # bytes/str/dict -> CallbackEvent
 ```
 
-Форматы хранилища: `SQLiteStore` (по умолчанию `CWD/.vkx/vkx.sqlite`),
-`JSONStore`, `MemoryStore`.
+`CallbackServer` — состояние одного колбек-сервера (secret, confirmation-код,
+group_id, дедупликация `event_id` и контентная дедупликация комментариев).
+`CallbackListener` — набор серверов, маршрутизация по `group_id`.
+`create_callback_server(client, group_id, url, ...)` — регистрирует сервер через
+`groups.addCallbackServer` и забирает confirmation-код.
+
+### Адаптеры
+
+Готовые роуты для FastAPI, Starlette, aiohttp, Sanic, Flask, Django (фреймворки
+опциональны, импортируются лениво):
 
 ```python
-from vkx import JSONStore, MemoryStore, open_store
-
-store = open_store("state.json")   # *.json -> JSONStore
-store = open_store()               # SQLite по умолчанию
-```
-
-## Типизированные методы
-
-Категории VK доступны как атрибуты клиента. Аргументы строго типизированы: лишний
-аргумент — `TypeError`. Возвращаются pydantic-модели.
-
-```python
-user = (await vk.users.get(user_ids=[1]))[0]
-print(user.first_name, user.last_name)
-```
-
-```python
-await vk.messages.send(peer_id=1, message="Привет")
-```
-
-`random_id` по умолчанию `0` — VK не проверяет такой вызов на дубликаты, сообщение
-уходит всегда. Свой `random_id` можно передать явно, если нужна защита от повторной
-отправки.
-
-## Сырой вызов `call`
-
-Любой метод можно вызвать строкой, без типизации — вернётся тело `response`.
-
-```python
-result = await vk.call("users.get", user_ids=[1])
-```
-
-`call` тоже идёт через очередь и батчинг, но не разбирает ответ в модель и не
-пагинирует.
-
-## Автобатчинг
-
-Обычные вызовы автоматически группируются через `execute`: до 25 вызовов и до
-260 000 байт VKScript на пакет. Снаружи это невидимо. Батчинг включён по
-умолчанию.
-
-```python
-users = await asyncio.gather(
-    vk.users.get(user_ids=[1]),
-    vk.users.get(user_ids=[2]),
-    vk.users.get(user_ids=[3]),
-)   # уедет одним execute-запросом
-```
-
-### Отключить батчинг у клиента
-
-`batching=False` у клиента — все запросы уходят прямыми вызовами, без `execute`.
-
-```python
-vk = VKClient(tokens="vk1.a....", batching=False)
-```
-
-### Отключить батчинг у одного запроса
-
-`batching=False` в `vk.call` — не батчится только этот вызов.
-
-```python
-await vk.call("users.get", user_ids=[1], batching=False)
-```
-
-### Отключить батчинг на блок
-
-`vk.overrides(...)` временно переопределяет настройки, в том числе для
-типизированных методов внутри блока.
-
-```python
-async with vk.overrides(batching=False):
-    await vk.users.get(user_ids=[1])   # прямым вызовом
-```
-
-## Автопагинация
-
-Методы с `offset`/`count` добирают страницы сами и сливают результат в один
-ответ. `vk.database.get_countries(count=1500)` вернёт 1500 стран одним вызовом.
-Автопагинация включена по умолчанию.
-
-```python
-countries = await vk.database.get_countries(count=1500)
-print(len(countries.items), countries.count)
-```
-
-Если `count=None`, клиент забирает всё, что отдаёт VK (по лимитам метода).
-
-```python
-all_topics = await vk.board.get_topics(group_id=1, count=None)
-```
-
-### Отключить автопагинацию у клиента
-
-`pagination=False` — метод вызывается один раз, тело ответа возвращается как есть.
-
-```python
-vk = VKClient(tokens="vk1.a....", pagination=False)
-```
-
-### Отключить автопагинацию на блок
-
-```python
-async with vk.overrides(pagination=False):
-    countries = await vk.database.get_countries(count=1500)   # одна страница
-```
-
-### Оба переопределения сразу
-
-```python
-async with vk.overrides(batching=False, pagination=False):
-    await vk.users.get(user_ids=[1])
-```
-
-## Пауза между запросами
-
-`interval` — пауза между пакетами. По умолчанию 0.5 с для пользователя и 0.1 с
-для сообщества.
-
-```python
-vk = VKClient(tokens="vk1.a....", interval=1.0)
-```
-
-## Немедленная отправка очереди
-
-`drain` отправляет накопленную очередь, не дожидаясь `interval`.
-
-```python
-await vk.call("users.get", user_ids=[1])
-await vk.drain()   # отправить прямо сейчас
-```
-
-## Таймаут запроса
-
-`timeout` ограничивает ожидание ответа. Истёк — `VKTimeoutError`, запрос
-помечается отменённым. Можно задать клиенту или одному вызову.
-
-```python
-from vkx import VKTimeoutError
-
-vk = VKClient(tokens="vk1.a....", timeout=5.0)
-try:
-    await vk.call("users.get", user_ids=[1], timeout=1.0)
-except VKTimeoutError as exc:
-    print("не дождались:", exc)
-```
-
-## Повторы и backoff
-
-Транзиентные сбои (сеть, HTTP 5xx/429, коды 1/6/9/10/29) повторяются
-`max_retries` раз с экспоненциальной паузой. Коды 6/29 поднимают общий cooldown
-для всех запросов, а успех его сбрасывает.
-
-```python
-vk = VKClient(tokens="vk1.a....", max_retries=3, retry_backoff=0.5)
-```
-
-## Переопределение HTTP-настроек на один запрос
-
-`http_client`, `base_api_url` и `v` можно задать у клиента и переопределить на
-конкретный вызов. `method_versions` задаёт версии отдельных методов поверх общего
-`v`; встроенный default для `messages.send` и `messages.edit` — `5.281`. Явный `v`
-конкретного вызова имеет наивысший приоритет.
-
-```python
-vk = VKClient(
-    tokens="vk1.a....",
-    method_versions={"users.get": "5.131"},
-)
-await vk.call("users.get", user_ids=[1], v="5.140", base_api_url="https://api.vk.com")
-```
-
-При одиночном `messages.send` результат — вложенный список `MessagesSendResponseModel`
-с `message_id` и `cmid`. Запросы с разными настройками не попадают в один батч.
-
-## Свой HTTP-клиент
-
-Клиент работает по протоколу `HttpClient` (асинхронные `get`/`post`). Можно
-передать своё, и тогда `httpx` не импортируется.
-
-```python
-import httpx2
-from vkx import VKClient
-
-http = httpx2.AsyncClient()
-vk = VKClient(tokens="vk1.a....", http_client=http)
-```
-
-## Свой код VKScript
-
-`execute` доступен и напрямую — для произвольного кода.
-
-```python
-code = "return API.users.get({'user_ids': '1'});"
-users = await vk.execute(code)
-```
-
-## Закрытие клиента
-
-`aclose(drain=True)` сначала дожидается отправки очереди, затем закрывает
-HTTP-клиент.
-
-```python
-await vk.aclose(drain=True, timeout=5.0)
-```
-
----
-
-# Загрузка файлов
-
-Хелперы получают сервер загрузки через очередь, отправляют байты напрямую
-HTTP-клиентом и сохраняют файл через `save`-метод. Свободные функции принимают
-клиент первым аргументом, namespace `vk.upload.*` — не принимает.
-
-## Фото в сообщения
-
-```python
-data = open("cat.jpg", "rb").read()
-photos = await vk.upload.photo_to_messages(data, peer_id=1)
-```
-
-## Фото на стену
-
-```python
-photos = await vk.upload.photo_to_wall(data, group_id=1, caption="кот")
-```
-
-## Документ
-
-```python
-doc = await vk.upload.doc_to_messages(data, peer_id=1, title="отчёт.pdf")
-```
-
-## Голосовое сообщение
-
-```python
-voice = await vk.upload.audio_message(ogg_bytes, peer_id=1)
-```
-
-## Свободные функции
-
-Тот же набор доступен как функции модуля.
-
-```python
-from vkx.client.upload import upload_audio_message, upload_photo_to_wall
-
-photo = await upload_photo_to_wall(vk, data, group_id=1)
-voice = await upload_audio_message(vk, ogg_bytes, peer_id=1)
-```
-
-## Строка-вложение `.as_att`
-
-Вложения отдают готовую строку для параметра `attachment`.
-
-```python
-photo = (await vk.upload.photo_to_wall(data, group_id=1))[0]
-await vk.messages.send(peer_id=1, message="фото", attachment=photo.as_att, random_id=0)
-```
-
-## Вложение документа
-
-```python
-doc = await vk.upload.doc(data)
-await vk.messages.send(peer_id=1, message="док", attachment=doc.as_att, random_id=0)
-```
-
----
-
-# Клавиатуры
-
-`Keyboard` и `Button` неизменяемы и умеют и разбор, и сборку. Для отправки
-используйте `keyboard=keyboard.to_json()`.
-
-## Inline callback-клавиатура
-
-`Button("Текст")` по умолчанию — callback-кнопка: нажатие приходит событием,
-сообщение не отправляется.
-
-```python
-from vkx.models import Button, Keyboard
-
-keyboard = Keyboard.from_rows([
-    [Button("Да", payload={"cmd": "yes"})],
-    [Button("Нет", payload={"cmd": "no"})],
-])
-await vk.messages.send(peer_id=1, message="Выбирай", keyboard=keyboard.to_json(), random_id=0)
-```
-
-## Обычная клавиатура
-
-По умолчанию `inline=True`; для чатовой клавиатуры передайте `inline=False`
-(лимит — 10 рядов вместо 6).
-
-```python
-keyboard = Keyboard.from_rows(
-    [[Button("Помощь", type="text")]],
-    inline=False,
-    one_time=True,
-)
-```
-
-## Несколько кнопок в ряду
-
-```python
-keyboard = Keyboard.from_rows(
-    [[Button("Да", payload={"cmd": "yes"}), Button("Нет", payload={"cmd": "no"})]],
-)
-```
-
-## Типы кнопок
-
-Помимо `callback` (по умолчанию): `text`, `open_link`, `location`, `vkpay`,
-`open_app`, `open_photo`.
-
-```python
-Button("Написать", type="text")
-Button("Сайт", type="open_link", link="https://vk.com")
-Button("Гео", type="location")
-Button("Оплатить", type="vkpay", hash="...")
-Button(type="open_app", app_id=1, owner_id=2, label="Приложение")
-Button(type="open_photo")
-```
-
-## Цвет кнопки
-
-```python
-from vkx.models import KeyboardButtonColor
-
-Button("Да", payload={"cmd": "yes"}, color=KeyboardButtonColor.POSITIVE)
-```
-
-## Payload — dict или JSON
-
-`payload` принимает dict, а хранится компактной JSON-строкой.
-
-```python
-Button("Открыть", payload={"screen": "menu", "id": 3})
-```
-
-## Низкоуровневые фабрики
-
-Если нужна именно `KeyboardButton` (например, при разборе), есть фабрики
-`callback`/`text`/`link`/`location`/`vkpay`/`open_app`/`open_photo`.
-
-```python
-from vkx.models import KeyboardButton
-
-KeyboardButton.callback("Да", payload={"cmd": "yes"})
-KeyboardButton.link("Сайт", "https://vk.com")
-```
-
----
-
-# Форматирование сообщений
-
-VK рисует жирный, курсив, подчёркивание и ссылки прямо в тексте сообщения.
-Разметка приходит отдельным параметром `format_data` — JSON-строкой
-`{"version": "1", "items": [{"type": "bold", "offset": 0, "length": 4}]}`.
-
-## Разбор разметки из текста
-
-`vkx` умеет разбирать HTML- и markdown-теги прямо в тексте сообщения: теги
-убираются из текста, а найденные участки превращаются в `format_data`.
-
-```python
-await vk.messages.send(
-    peer_id=1,
-    message="привет <b>мир</b>, *курсив* и [сайт](https://vk.com)",
-)
-```
-
-| Разметка | Что получится |
-|---|---|
-| `<b>`, `<strong>`, `**жирный**` | жирный |
-| `<i>`, `<em>`, `*курсив*`, `_курсив_` | курсив |
-| `<u>`, `<ins>`, `__подчёркнутый__` | подчёркнутый |
-| `<a href="...">`, `[текст](ссылка)` | ссылка |
-| `<br>` | перенос строки |
-| `<s>`, `<del>`, `~~зачёркнутый~~` | текст без тегов (VK зачёркивание не рисует) |
-
-Вложенность поддержана: `<b>жирный <i>и курсив</i></b>` даёт два перекрывающихся
-участка. Смещения считаются в code units UTF-16 — так же, как у веб-клиента VK,
-поэтому эмодзи занимают две позиции.
-
-Разбор включён по умолчанию и работает и в `vk.messages.send`, и в
-`vk.messages.edit`, и в сыром `vk.call("messages.send", ...)`.
-
-## Свой `format_data`
-
-Если в вызове метода передан `format_data` — разбор не выполняется, сообщение
-уходит как есть. Принимается JSON-строка, `dict` или модель `FormatData`.
-
-```python
-from vkx.models import FormatData, FormatItem
-
-await vk.messages.send(
-    peer_id=1,
-    message="своя разметка",
-    format_data=FormatData(items=[FormatItem(type="bold", offset=0, length=5)]),
-)
-```
-
-```python
-await vk.messages.send(
-    peer_id=1,
-    message="своя разметка",
-    format_data='{"version":"1","items":[{"type":"bold","offset":0,"length":5}]}',
-)
-```
-
-## Отключить разбор
-
-`parse_format=False` у клиента — сообщения уходят с тегами как есть.
-
-```python
-vk = VKClient(tokens="vk1.a....", parse_format=False)
-```
-
-На блок запросов:
-
-```python
-async with vk.overrides(parse_format=False):
-    await vk.messages.send(peer_id=1, message="<b>как есть</b>")
-```
-
-## Только HTML или только markdown
-
-`parse_markdown` и `parse_html` включают синтаксис по отдельности. Выключенный
-синтаксис остаётся обычным текстом: маркеры не снимаются и разметки по ним не
-будет.
-
-```python
-# markdown включён, HTML выключен
-vk = VKClient(tokens="vk1.a....", parse_html=False)
-await vk.messages.send(peer_id=1, message="**жир** и <b>тег</b>")
-# в VK уедет "жир и <b>тег</b>" — жирным сделано только "жир"
-```
-
-```python
-# HTML включён, markdown выключен
-vk = VKClient(tokens="vk1.a....", parse_markdown=False)
-await vk.messages.send(peer_id=1, message="**жир** и <b>тег</b>")
-# в VK уедет "**жир** и тег" — жирным сделано только "тег"
-```
-
-То же на блок запросов:
-
-```python
-async with vk.overrides(parse_markdown=False, parse_html=False):
-    await vk.messages.send(peer_id=1, message="<b>как есть</b> и **вот так**")
-```
-
-## Разобрать текст вручную
-
-```python
-from vkx import parse_format
-
-text, items = parse_format("привет <b>мир</b>")
-print(text)                                  # "привет мир"
-print([(item.type, item.offset) for item in items])   # [("bold", 7)]
-```
-
-Синтаксис можно отключить и на уровне парсера:
-
-```python
-text, items = parse_format("**жир** и <b>тег</b>", markdown=False, html=True)
-# text == "**жир** и тег"
-```
-
----
-
-# Callback API: разбор уведомлений
-
-`parse_callback` — чистый парсер без состояния. Он не проверяет `secret`,
-`confirmation` и не дедуплицирует — это задача интеграции (см. ниже).
-
-## Разбор события
-
-```python
-from vkx import parse_callback
-
-event = parse_callback(body)          # bytes/str/dict
-print(event.type, event.group_id)
-```
-
-## Конкретные типы событий
-
-По полю `type` возвращается конкретный класс, `object` уже типизирован.
-
-```python
-from vkx.models import CallbackEventType, MessageNewCallbackEvent
-
-event = parse_callback(body)
-if isinstance(event, MessageNewCallbackEvent):
-    print(event.object.message.text, event.object.message.peer_id)
-```
-
-## Неизвестный тип не роняет парсер
-
-Вернётся `BaseCallbackEvent` с `NOT_SUPPORTED_MEMBER` и сырым `object`.
-
-```python
-event = parse_callback({"type": "future_event", "object": {}})
-print(event.type is CallbackEventType.NOT_SUPPORTED_MEMBER)
-```
-
----
-
-# Callback API: серверная обвязка
-
-`CallbackServer` хранит `group_id`, ожидаемый `secret`, `confirmation`-код и
-дедуплицирует `event_id`. `CallbackListener` маршрутизирует по `group_id`.
-
-## `CallbackListener.handle`
-
-Возвращает событие или `None`, если уведомление чужое, подделано или дубликат.
-
-```python
-from vkx import CallbackListener, CallbackServer
-
-server = CallbackServer(group_id=1, secret="s3cret", confirmation_code="abc123")
-listener = CallbackListener([server])
-
-event = listener.handle(body)
-if event is None:
-    ...   # чужой group_id / плохой secret / дубликат
-```
-
-## Ответ на `confirmation`
-
-Код подтверждения адреса нужно вернуть синхронно.
-
-```python
-from vkx.models import CallbackEventType
-
-if event and event.type is CallbackEventType.CONFIRMATION:
-    return server.confirmation_code   # "abc123"
-```
-
-## Проверка секрета
-
-Если `secret` задан, уведомления с другим `secret` отбрасываются.
-
-```python
-server = CallbackServer(group_id=1, secret="s3cret")
-assert server.accepts(event)   # False, если secret не совпал
-```
-
-## Дедупликация
-
-Каждый `event_id` обрабатывается один раз. Для `message_new` дополнительно
-учитывается идентичность сообщения (`peer_id` + `conversation_message_id`):
-VK присылает одно и то же сообщение дважды — вторым проходом дописывает
-ссылку-сниппет и меняет `event_id`; повтор отбрасывается. Кольцевой буфер —
-на 200 записей (`DEFAULT_DEDUP_SIZE`), размер настраивается.
-
-```python
-server = CallbackServer(group_id=1, dedup_size=5000)
-```
-
-## Регистрация сервера в сообществе
-
-`create_callback_server` вызывает `groups.addCallbackServer` и забирает
-`confirmation`-код.
-
-```python
-from vkx import create_callback_server
-
-server = await create_callback_server(
-    vk, group_id=1, url="https://example.com/vk/callback",
-    title="мой-бот", secret="s3cret",
-)
-```
-
-`title` — не длиннее 14 символов, `secret` — не длиннее 50.
-
-## Несколько сообществ на одном URL
-
-`CallbackListener` держит набор серверов и сам выбирает нужный по `group_id`.
-
-```python
-listener = CallbackListener([server_a, server_b])
-```
-
----
-
-# Веб-адаптеры
-
-Пакет `vkx.adapters`. Фреймворки импортируются лениво, в зависимости `vkx` не
-тянутся. Адаптер импортируют только те, у кого фреймворк уже стоит.
-
-## Два диспетчера
-
-- `CallbackDispatch` — для async-фреймворков: ответ `ok` отдаётся сразу,
-  обработчик запускается фоновой задачей. Синхронный обработчик уходит в
-  отдельный поток, чтобы не блокировать loop.
-- `SyncCallbackDispatch` — для Flask/Django WSGI: обработчик обязан быть
-  **синхронным** и вызывается в том же потоке. Async-функция даёт `TypeError`.
-
-В обоих `confirmation` возвращается немедленно.
-
-## Синхронный обработчик (Flask/Django)
-
-Для `SyncCallbackDispatch` обработчик обязан быть обычной функцией — он
-вызывается прямо в потоке WSGI-запроса.
-
-```python
-def handle_vk_event(event: CallbackEvent) -> None:
-    ...   # синхронно; async-функция вызовет TypeError
-```
-
-## FastAPI
-
-```python
-from vkx.adapters import CallbackDispatch
 from vkx.adapters.fastapi import create_callback_router
+from vkx.server import CallbackDispatch
 
-dispatch = CallbackDispatch(listener, handler=handle_vk_event)
-app.include_router(create_callback_router(dispatch))
+dispatch = CallbackDispatch(server)
+router = create_callback_router(dispatch, path="/vk/callback")
 ```
 
-## Starlette
+### Long Poll
 
 ```python
-from starlette.applications import Starlette
+from vkx.server import LongPoll, BotsLongPoll
 
-from vkx.adapters.starlette import create_callback_router
-
-router = create_callback_router(dispatch)
-app = Starlette(routes=[*router.routes])
+async with LongPoll(vk) as lp:
+    async for event in lp:
+        ...
 ```
 
-## aiohttp
+`BotsLongPoll(client, group_id=...)` — для сообществ (требует group_id при
+пользовательском токене).
 
-```python
-from aiohttp import web
+## Примеры и тесты
 
-from vkx.adapters.aiohttp import create_callback_router
+Ручные/живые скрипты: `_example_client.py`, `_test_batch.py`, `_test_pagination.py`,
+`_probe_format.py`. Тесты: `tests/test_*.py` (unittest, Python ≥ 3.12).
 
-app = web.Application()
-app.add_routes(create_callback_router(dispatch))
+```bash
+.venv\Scripts\python.exe tests\test_message_format.py
+.venv\Scripts\python.exe tests\test_resolve.py
 ```
 
-## Sanic
-
-```python
-from vkx.adapters.sanic import create_callback_router
-
-app.blueprint(create_callback_router(dispatch))
-```
-
-## Flask
-
-Flask WSGI синхронный — используем `SyncCallbackDispatch` и обычный обработчик.
-
-```python
-from vkx.adapters import SyncCallbackDispatch
-from vkx.adapters.flask import create_callback_router
-
-dispatch = SyncCallbackDispatch(listener, handler=handle_vk_event)
-app.register_blueprint(create_callback_router(dispatch))
-```
-
-## Django
-
-```python
-from django.urls import path
-
-from vkx.adapters import SyncCallbackDispatch
-from vkx.adapters.django import create_callback_view
-
-dispatch = SyncCallbackDispatch(listener, handler=handle_vk_event)
-urlpatterns = [path("vk/callback", create_callback_view(dispatch))]
-```
-
-По умолчанию view освобождён от CSRF-проверки (`csrf_exempt=True`).
-
-## Асинхронный обработчик в background
-
-Обработчик `CallbackDispatch` получает событие после того, как VK прочитает
-`ok`.
-
-```python
-async def handle_vk_event(event: CallbackEvent) -> None:
-    if isinstance(event, MessageNewCallbackEvent):
-        await vk.messages.send(
-            peer_id=event.object.message.peer_id,
-            message="принято",
-            random_id=0,
-        )
-```
-
-## Ожидание фоновых задач
-
-На остановке приложения дождитесь задач `CallbackDispatch` через `aclose`.
-
-```python
-dispatch = CallbackDispatch(listener, handler=handle_vk_event)
-...
-await dispatch.aclose(timeout=5.0)
-```
-
-Также поддерживается `async with dispatch:`.
-
-## Изменение пути роута
-
-```python
-create_callback_router(dispatch, path="/webhooks/vk", name="vk")
-```
-
----
-
-# Long Poll
-
-## Bots Long Poll
-
-События разбираются тем же `parse_callback`, что и Callback API.
-
-```python
-from vkx.server import BotsLongPoll
-
-async with BotsLongPoll(vk) as longpoll:
-    async for event in longpoll:
-        print(event.type)
-```
-
-`group_id` берётся из клиента; можно передать явно.
-
-```python
-longpoll = BotsLongPoll(vk, group_id=1, wait=25)
-```
-
-## Одно событие
-
-```python
-event = await longpoll.get_event()
-```
-
-## User Long Poll
-
-```python
-from vkx.server import LongPoll
-
-async with LongPoll(vk) as longpoll:
-    async for event in longpoll:
-        print(event.object)
-```
-
-## Режим user Long Poll
-
-```python
-longpoll = LongPoll(vk, mode=234, lp_version=3, wait=25)
-```
-
-## Остановка
-
-`__aexit__`/`aclose()` останавливает фоновый поллинг; `stop()` просит завершиться
-после текущего запроса.
-
-```python
-await longpoll.aclose()
-```
-
----
-
-# Типы и события
-
-## Объекты VK
-
-```python
-from vkx.models import Button, Keyboard, KeyboardButton, Message, Photo
-```
-
-## События Callback API
-
-```python
-from vkx.models import (
-    CallbackEvent,
-    CallbackEventType,
-    MessageEventCallbackEvent,
-    MessageNewCallbackEvent,
-)
-```
-
-## Payload нажатия кнопки
-
-```python
-if isinstance(event, MessageEventCallbackEvent):
-    print(event.object.payload, event.object.user_id)
-```
-
-## События user Long Poll
-
-Конкретные классы user-событий живут в `vkx.models.events.user_events` (из
-`vkx.models` реэкспортируется только базовый `BaseUserEvent` и парсер).
-
-```python
-from vkx.models import parse_user_event
-from vkx.models.events.user_events import MessageNewEvent
-
-# [код события, message_id, flags, peer_id, timestamp, text, ...]
-event = parse_user_event([4, 123, 0, 1, 1700000000, "привет"])
-if isinstance(event, MessageNewEvent):
-    print(event.object.text)
-```
-
----
-
-# Ошибки
-
-Все ошибки — `VKError` (по коду выбирается подкласс), поэтому `except VKError`
-ловит всё, а `exc.code` — исходный числовой код.
-
-```python
-from vkx import VKError
-
-try:
-    await vk.messages.send(peer_id=1, message="hi", random_id=0)
-except VKError as exc:
-    print(exc.code, exc.is_auth, exc.is_rate_limit, exc.is_captcha)
-```
-
-Подклассы: `VKInvalidTokenError`, `VKAuthError`, `VKPermissionError`,
-`VKRequestError`, `VKRateLimitError`, `VKFloodError`, `VKServerError`,
-`VKCaptchaError`, `VKTransportError`, `VKTimeoutError`.
-
-## Пауза из ошибки
-
-```python
-except VKError as exc:
-    if exc.is_retryable:
-        await asyncio.sleep(exc.retry_after or 1.0)
-```
-
-## Контекст ошибки
-
-`exc.client` — клиент, `exc.call` — `PendingApiCall` (метод и параметры).
-
-```python
-except VKError as exc:
-    print(exc.call.method, exc.call.params)
-```
-
-## Свой парсер ошибок
-
-```python
-from vkx import build_error
-
-error = build_error("слишком много запросов", code=6)
-print(type(error).__name__)   # VKRateLimitError
-```
-
+Линтер: `uvx ruff check src`. Типы: `uvx pyright`.
