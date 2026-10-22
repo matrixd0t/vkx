@@ -21,7 +21,8 @@ HTTP: клиент работает с протоколом HttpClient (асин
 опциональная зависимость, создаётся лениво, если свой клиент не передан.
 http_client / base_api_url / v задаются у клиента и могут быть переопределены
 для отдельного запроса (call); method_versions задаёт версии по умолчанию
-отдельных методов (messages.send использует v=5.281). Явный v вызова приоритетнее.
+отдельных методов (messages.send и messages.edit используют v=5.281). Явный v вызова
+приоритетнее.
 
 Очередь и батчинг: call() фиксирует маршрут запроса (_Queued: кандидаты, HTTP-
 настройки и текущий источник) и кладёт его в очередь; PendingApiCall ждёт
@@ -52,6 +53,11 @@ from dataclasses import dataclass
 from typing import Any, Self
 
 from ..models.categories import APICategories
+from ..models.formatting import (
+    FormatItem,
+    format_data_json,
+    parse_format,
+)
 from . import pagination
 from .errors import VKError, VKTimeoutError, VKTransportError, build_error
 from .http import API_HOST, API_VERSION, HttpClient, create_http_client
@@ -76,7 +82,13 @@ MAX_BATCH_RETRIES = 2
 DEFAULT_MAX_RETRIES = 2
 DEFAULT_RETRY_BACKOFF = 0.5
 MAX_ADAPTIVE_BACKOFF = 30.0
-_DEFAULT_METHOD_VERSIONS = {"messages.send": "5.281"}
+_DEFAULT_METHOD_VERSIONS = {
+    "messages.send": "5.281",
+    "messages.edit": "5.281",
+}
+
+_FORMAT_METHODS: frozenset[str] = frozenset({"messages.send", "messages.edit"})
+"""Методы, принимающие разметку сообщения (``format_data``)."""
 
 CookieMap = Mapping[str, str]
 TokenInput = str | TokenSource
@@ -93,6 +105,9 @@ class _Overrides:
 
     batching: bool | None = None
     pagination: bool | None = None
+    parse_format: bool | None = None
+    parse_markdown: bool | None = None
+    parse_html: bool | None = None
 
 
 _overrides: contextvars.ContextVar[_Overrides] = contextvars.ContextVar(
@@ -405,6 +420,10 @@ class _CategoryApi:
             "_vkx_call": call,
         }
 
+    def format_message(self, message: str) -> tuple[str, list[FormatItem]]:
+        """Разобрать разметку в тексте сообщения (мост к настройке клиента)."""
+        return self._client.format_message(message)
+
     async def _request_paginated(
         self, method: str, params: dict[str, Any]
     ) -> tuple[Any, list[str], PendingApiCall | None]:
@@ -487,6 +506,9 @@ class VKClient(APICategories):
         captcha_handler: CaptchaHandler | None = None,
         batching: bool = True,
         pagination: bool = True,
+        parse_format: bool = True,
+        parse_markdown: bool = True,
+        parse_html: bool = True,
     ) -> None:
         if interval is not None and interval < 0:
             raise ValueError("interval: пауза между запросами не может быть отрицательной")
@@ -526,6 +548,9 @@ class VKClient(APICategories):
         self._captcha_handler = captcha_handler
         self._batching = batching
         self._pagination = pagination
+        self._parse_format = parse_format
+        self._parse_markdown = parse_markdown
+        self._parse_html = parse_html
         self._probed = False
         self._probe_lock = asyncio.Lock()
         self._queue: deque[_Queued] = deque()
@@ -548,14 +573,106 @@ class VKClient(APICategories):
         override = _overrides.get().pagination
         return self._pagination if override is None else override
 
+    def _effective_parse_format(self) -> bool:
+        """Разбор разметки с учётом активного переопределения (``vk.overrides``)."""
+        override = _overrides.get().parse_format
+        return self._parse_format if override is None else override
+
+    def _effective_parse_markdown(self) -> bool:
+        """Разбор markdown с учётом активного переопределения (``vk.overrides``)."""
+        override = _overrides.get().parse_markdown
+        return self._parse_markdown if override is None else override
+
+    def _effective_parse_html(self) -> bool:
+        """Разбор HTML с учётом активного переопределения (``vk.overrides``)."""
+        override = _overrides.get().parse_html
+        return self._parse_html if override is None else override
+
+    @property
+    def parse_format(self) -> bool:
+        """Разбирать ли HTML/markdown-разметку в тексте сообщений (по умолчанию — да)."""
+        return self._parse_format
+
+    @parse_format.setter
+    def parse_format(self, value: bool) -> None:
+        self._parse_format = bool(value)
+
+    @property
+    def parse_markdown(self) -> bool:
+        """Разбирать ли markdown-разметку в тексте сообщений (по умолчанию — да)."""
+        return self._parse_markdown
+
+    @parse_markdown.setter
+    def parse_markdown(self, value: bool) -> None:
+        self._parse_markdown = bool(value)
+
+    @property
+    def parse_html(self) -> bool:
+        """Разбирать ли HTML-разметку в тексте сообщений (по умолчанию — да)."""
+        return self._parse_html
+
+    @parse_html.setter
+    def parse_html(self, value: bool) -> None:
+        self._parse_html = bool(value)
+
+    def format_message(self, message: str) -> tuple[str, list[FormatItem]]:
+        """Разобрать разметку в тексте сообщения.
+
+        Возвращает ``(текст без разметки, элементы format_data)``. Если разбор
+        выключен (``parse_format=False`` или ``vk.overrides(parse_format=False)``) —
+        текст возвращается как есть, элементов нет. ``parse_markdown``/
+        ``parse_html`` включают соответствующий синтаксис по отдельности.
+        """
+        if not self._effective_parse_format():
+            return message, []
+        return parse_format(
+            message,
+            markdown=self._effective_parse_markdown(),
+            html=self._effective_parse_html(),
+        )
+
+    def _format_params(self, method: str, params: dict[str, Any]) -> dict[str, Any]:
+        """Подставить ``format_data``, разобрав разметку в тексте сообщения.
+
+        Если ``format_data`` уже передан — разбор не выполняется (запрос с
+        собственным форматированием уходит без изменений).
+        """
+        if method not in _FORMAT_METHODS or params.get("format_data") is not None:
+            return params
+        message = params.get("message")
+        if not isinstance(message, str) or not message:
+            return params
+        text, items = self.format_message(message)
+        if text == message and not items:
+            return params
+        updated = dict(params)
+        updated["message"] = text
+        if items:
+            updated["format_data"] = format_data_json(items)
+        return updated
+
+    def _prepare_params(self, method: str, params: dict[str, Any]) -> dict[str, Any]:
+        """Подготовка параметров перед отправкой: разметка и ``random_id``.
+
+        ``messages.send`` требует ``random_id``; по умолчанию отправляется ``0`` —
+        VK не проверяет такой вызов на дубликаты, сообщение уходит всегда.
+        """
+        updated = self._format_params(method, params)
+        if method == "messages.send" and updated.get("random_id") is None:
+            updated = {**updated, "random_id": 0}
+        return updated
+
     @contextlib.asynccontextmanager
     async def overrides(
         self,
         *,
         batching: bool | None = None,
         pagination: bool | None = None,
+        parse_format: bool | None = None,
+        parse_markdown: bool | None = None,
+        parse_html: bool | None = None,
     ) -> AsyncIterator[VKClient]:
-        """Временно переопределить батчинг/пагинацию (оба включены по умолчанию).
+        """Временно переопределить батчинг/пагинацию/разбор разметки.
 
         Действует на все запросы внутри блока; ``None`` оставляет текущее
         значение. Пример: ``async with vk.overrides(pagination=False): ...``.
@@ -565,6 +682,11 @@ class VKClient(APICategories):
             _Overrides(
                 batching=current.batching if batching is None else batching,
                 pagination=current.pagination if pagination is None else pagination,
+                parse_format=current.parse_format if parse_format is None else parse_format,
+                parse_markdown=(
+                    current.parse_markdown if parse_markdown is None else parse_markdown
+                ),
+                parse_html=current.parse_html if parse_html is None else parse_html,
             )
         )
         try:
@@ -1203,7 +1325,7 @@ class VKClient(APICategories):
             )
         request = PendingApiCall(
             method,
-            params,
+            self._prepare_params(method, params),
             client=self,
             timeout=timeout if timeout is not None else self._timeout,
         )

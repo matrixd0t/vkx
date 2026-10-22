@@ -77,9 +77,40 @@ class MessagesSendTests(unittest.IsolatedAsyncioTestCase):
                         "message": "test",
                         "group_id": 62391174,
                         "from": "reforged",
+                        "random_id": 0,
                     },
                 )
             ],
+        )
+
+    async def test_random_id_defaults_to_zero(self):
+        api = FakeApi()
+        messages = MessagesCategory(api)
+
+        await messages.send(peer_id=42, message="test")
+
+        self.assertEqual(api.calls[0][1]["random_id"], 0)
+
+    async def test_random_id_zero_keeps_every_chunk_at_zero(self):
+        api = FakeApi()
+        messages = MessagesCategory(api)
+
+        await messages.send(peer_id=42, message="a" * 8001, random_id=0)
+
+        self.assertEqual(
+            [params["random_id"] for _, params in api.calls],
+            [0, 0, 0],
+        )
+
+    async def test_explicit_random_id_is_incremented_per_chunk(self):
+        api = FakeApi()
+        messages = MessagesCategory(api)
+
+        await messages.send(peer_id=42, message="a" * 8001, random_id=7)
+
+        self.assertEqual(
+            [params["random_id"] for _, params in api.calls],
+            [7, 8, 9],
         )
 
     def test_legacy_integer_response_keeps_message_id(self):

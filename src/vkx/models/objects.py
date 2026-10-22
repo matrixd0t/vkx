@@ -1957,6 +1957,47 @@ class AudioMessage(BaseModel):
         )
 
 
+class FormatItem(BaseModel):
+    """Model: `FormatItem`"""
+
+    type: str = Field()
+    """Тип форматирования: `bold`, `italic`, `underline`, `url`."""
+
+    offset: int = Field()
+    """Смещение участка в тексте сообщения (в code units UTF-16)."""
+
+    length: int = Field()
+    """Длина участка в тексте сообщения (в code units UTF-16)."""
+
+    url: str | None = Field(
+        default=None,
+    )
+    """Адрес ссылки — заполняется только для типа `url`."""
+
+
+class FormatData(BaseModel):
+    """Model: `FormatData`"""
+
+    version: str = Field(
+        default="1",
+    )
+    """Версия формата разметки."""
+
+    items: list[FormatItem] = Field(default_factory=list)
+    """Участки форматирования сообщения."""
+
+    @pydantic.model_validator(mode="before")
+    @classmethod
+    def _from_json_string(cls, value: typing.Any) -> typing.Any:
+        """Принимает и JSON-строку, и готовый объект."""
+        if isinstance(value, str):
+            try:
+                return json.loads(value)
+            except ValueError:
+                return value
+        return value
+
+
 class BaseMessage(BaseModel):
     """Model: `BaseMessage`"""
 
@@ -2058,6 +2099,11 @@ class BaseMessage(BaseModel):
         default=None,
     )
     """Property `BaseMessage.ref_source`."""
+
+    format_data: FormatData | None = Field(
+        default=None,
+    )
+    """Разметка сообщения (`format_data`): жирный/курсив/подчёркивание/ссылки."""
 
 
 class Chat(BaseModel):
