@@ -291,6 +291,23 @@ class SyntaxSwitchTests(unittest.TestCase):
 
 
 class ClientParseFormatTests(unittest.IsolatedAsyncioTestCase):
+    async def test_raw_send_without_message_uses_empty_string(self):
+        http = FakeHttpClient()
+        client = VKClient(
+            tokens="test-token",
+            http_client=http,
+            interval=0,
+            batching=False,
+            pagination=False,
+        )
+        try:
+            await client.call("messages.send", peer_id=42, attachment="photo1_2")
+
+            sends = [data for method, data in http.calls if method == "messages.send"]
+            self.assertEqual(sends[0]["message"], "")
+        finally:
+            await client.aclose()
+
     async def test_raw_call_gets_random_id_zero_by_default(self):
         http = FakeHttpClient()
         client = VKClient(

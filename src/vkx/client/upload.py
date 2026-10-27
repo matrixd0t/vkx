@@ -266,6 +266,7 @@ async def upload_photo_to_messages(
     data: bytes,
     *,
     peer_id: int | None = None,
+    group_id: int | None = None,
     filename: str = PHOTO_FILENAME,
     content_type: str | None = None,
     field: str = "photo",
@@ -281,7 +282,7 @@ async def upload_photo_to_messages(
         filename=filename,
         content_type=content_type,
         default_content_type=PHOTO_CONTENT_TYPE,
-        server_params={"peer_id": peer_id, **server_params},
+        server_params={"peer_id": peer_id, "group_id": group_id, **server_params},
         http_client=http_client,
     )
     uploaded = _as_mapping(raw, client=client, method="photos.getMessagesUploadServer")
@@ -289,6 +290,7 @@ async def upload_photo_to_messages(
         photo=_field(uploaded, "photo"),
         hash=uploaded.get("hash"),
         server=uploaded.get("server"),
+        group_id=group_id,
     )
 
 
@@ -450,6 +452,7 @@ async def _save_doc(
     title: str | None,
     tags: str | None,
     return_tags: bool | None,
+    group_id: int | None = None,
     filename: str,
     content_type: str | None,
     field: str,
@@ -472,6 +475,7 @@ async def _save_doc(
         title=title,
         tags=tags,
         return_tags=return_tags,
+        group_id=group_id,
     )
 
 
@@ -498,6 +502,7 @@ async def upload_doc(
         title=title,
         tags=tags,
         return_tags=return_tags,
+        group_id=group_id,
         filename=filename,
         content_type=content_type,
         field=field,
@@ -528,6 +533,7 @@ async def upload_doc_to_wall(
         title=title,
         tags=tags,
         return_tags=return_tags,
+        group_id=group_id,
         filename=filename,
         content_type=content_type,
         field=field,
@@ -565,6 +571,7 @@ async def upload_doc_to_messages(
         title=title,
         tags=tags,
         return_tags=return_tags,
+        group_id=group_id,
         filename=filename,
         content_type=content_type,
         field=field,
@@ -580,6 +587,7 @@ async def upload_audio_message(
     data: bytes,
     *,
     peer_id: int | None = None,
+    group_id: int | None = None,
     filename: str = AUDIO_MESSAGE_FILENAME,
     content_type: str | None = None,
     field: str = "file",
@@ -599,11 +607,19 @@ async def upload_audio_message(
         filename=filename,
         content_type=content_type,
         default_content_type=AUDIO_MESSAGE_CONTENT_TYPE,
-        server_params={"peer_id": peer_id, "type": "audio_message", **server_params},
+        server_params={
+            "peer_id": peer_id,
+            "type": "audio_message",
+            "group_id": group_id,
+            **server_params,
+        },
         http_client=http_client,
     )
     uploaded = _as_mapping(raw, client=client, method="docs.getMessagesUploadServer")
-    return await client.docs.save(file=_field(uploaded, "file"))
+    return await client.docs.save(
+        file=_field(uploaded, "file"),
+        group_id=group_id,
+    )
 
 
 # ---------- namespace vk.upload ----------
@@ -689,6 +705,7 @@ class UploadNamespace:
         data: bytes,
         *,
         peer_id: int | None = None,
+        group_id: int | None = None,
         filename: str = PHOTO_FILENAME,
         content_type: str | None = None,
         field: str = "photo",
@@ -700,6 +717,7 @@ class UploadNamespace:
             self._client,
             data,
             peer_id=peer_id,
+            group_id=group_id,
             filename=filename,
             content_type=content_type,
             field=field,
@@ -911,6 +929,7 @@ class UploadNamespace:
         data: bytes,
         *,
         peer_id: int | None = None,
+        group_id: int | None = None,
         filename: str = AUDIO_MESSAGE_FILENAME,
         content_type: str | None = None,
         field: str = "file",
@@ -922,6 +941,7 @@ class UploadNamespace:
             self._client,
             data,
             peer_id=peer_id,
+            group_id=group_id,
             filename=filename,
             content_type=content_type,
             field=field,

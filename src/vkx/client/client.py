@@ -670,14 +670,17 @@ class VKClient(APICategories):
         return updated
 
     def _prepare_params(self, method: str, params: dict[str, Any]) -> dict[str, Any]:
-        """Подготовка параметров перед отправкой: разметка и ``random_id``.
+        """Подготовка параметров перед отправкой: разметка и значения по умолчанию.
 
-        ``messages.send`` требует ``random_id``; по умолчанию отправляется ``0`` —
-        VK не проверяет такой вызов на дубликаты, сообщение уходит всегда.
+        ``messages.send`` получает пустой ``message``, если текст не задан, и
+        ``random_id=0`` по умолчанию — VK не проверяет такой вызов на дубликаты.
         """
         updated = self._format_params(method, params)
-        if method == "messages.send" and updated.get("random_id") is None:
-            updated = {**updated, "random_id": 0}
+        if method == "messages.send":
+            if updated.get("message") is None:
+                updated = {**updated, "message": ""}
+            if updated.get("random_id") is None:
+                updated = {**updated, "random_id": 0}
         return updated
 
     @contextlib.asynccontextmanager
