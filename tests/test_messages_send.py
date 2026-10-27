@@ -91,6 +91,14 @@ class MessagesSendTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(api.calls[0][1]["random_id"], 0)
 
+    async def test_message_defaults_to_empty_string(self):
+        api = FakeApi()
+        messages = MessagesCategory(api)
+
+        await messages.send(peer_id=42)
+
+        self.assertEqual(api.calls[0][1]["message"], "")
+
     async def test_random_id_zero_keeps_every_chunk_at_zero(self):
         api = FakeApi()
         messages = MessagesCategory(api)

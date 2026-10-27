@@ -416,10 +416,12 @@ class PhotosCategory(BaseCategory):
     async def get_messages_upload_server(
         self,
         peer_id: int | None = None,
+        group_id: int | None = None,
     ) -> "PhotoUpload":
         """Method `photos.getMessagesUploadServer()`
 
         :param peer_id: Destination ID. "For user: 'User ID', e.g. '12345'. For chat: '2000000000' + 'Chat ID', e.g. '2000000001'. For community: '- Community ID', e.g. '-12345'. "
+        :param group_id: Community ID (if the photo will be uploaded to the community).
         """
 
         return await self._call("photos.getMessagesUploadServer", locals(), PhotoUpload)
@@ -711,12 +713,14 @@ class PhotosCategory(BaseCategory):
         photo: str,
         hash: str | None = None,
         server: int | None = None,
+        group_id: int | None = None,
     ) -> list[Photo]:
         """Method `photos.saveMessagesPhoto()`
 
         :param photo: Parameter returned when the photo is [vk.com/dev/upload_files|uploaded to the server].
         :param hash:
         :param server:
+        :param group_id: Community ID (if the photo is saved to community messages).
         """
 
         return await self._call("photos.saveMessagesPhoto", locals(), list[Photo])

@@ -86,11 +86,13 @@ class DocsCategory(BaseCategory):
         self,
         peer_id: int | None = None,
         type: str | None = None,
+        group_id: int | None = None,
     ) -> "UploadServer":
         """Method `docs.getMessagesUploadServer()`
 
         :param peer_id: Destination ID. "For user: 'User ID', e.g. '12345'. For chat: '2000000000' + 'Chat ID', e.g. '2000000001'. For community: '- Community ID', e.g. '-12345'. "
         :param type: Document type.
+        :param group_id: Community ID (if the document will be uploaded to the community).
         """
 
         return await self._call("docs.getMessagesUploadServer", locals(), UploadServer)
@@ -147,6 +149,7 @@ class DocsCategory(BaseCategory):
         return_tags: bool | None = None,
         tags: str | None = None,
         title: str | None = None,
+        group_id: int | None = None,
     ) -> DocsSaveResponseModel:
         """Method `docs.save()`
 
@@ -154,6 +157,7 @@ class DocsCategory(BaseCategory):
         :param return_tags:
         :param tags: Document tags.
         :param title: Document title.
+        :param group_id: Community ID (if the document is saved to community messages).
         """
 
         return await self._call("docs.save", locals(), DocsSaveResponseModel)

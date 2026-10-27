@@ -1258,7 +1258,7 @@ class MessagesCategory(BaseCategory):
         :param domain: User's short address (for example, 'illarionov').
         :param chat_id: ID of conversation the message will relate to.
         :param user_ids: IDs of message recipients (if new conversation shall be started).
-        :param message: (Required if 'attachments' is not set.) Text of the message.
+        :param message: Текст сообщения. Если не задан, отправляется пустая строка.
         :param lat: Geographical latitude of a check-in, in degrees (from -90 to 90).
         :param long: Geographical longitude of a check-in, in degrees (from -180 to 180).
         :param attachment: (Required if 'message' is not set.) List of objects attached to the message, separated by commas, in the following format: "<owner_id>_<media_id>", '' — Type of media attachment: 'photo' — photo, 'video' — video, 'audio' — audio, 'doc' — document, 'wall' — wall post, '<owner_id>' — ID of the media attachment owner. '<media_id>' — media attachment ID. Example: "photo100172_166443618"
@@ -1285,6 +1285,9 @@ class MessagesCategory(BaseCategory):
         prepared = format_data_to_json(format_data)
         params["format_data"] = prepared
         text = params.get("message")
+        if text is None:
+            text = ""
+            params["message"] = text
         items: list[FormatItem] = []
         if prepared is None and isinstance(text, str) and text:
             text, items = self._format_message(text)
