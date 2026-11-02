@@ -80,10 +80,14 @@ from vkx import VKClient
 vk = VKClient(tokens="vk1.a....")
 vk = VKClient(cookies={"p": "...", "remixsid": "..."})
 vk = VKClient(tokens=["tok_a", "tok_b"], cookies=[{"p": ..., "remixsid": ...}])
+# переопределить User-Agent HTTP-клиента:
+vk = VKClient(tokens="vk1.a....", user_agent="MyApp/1.0")
 ```
 
 Конструктор не ходит в сеть; сеть трогается при первом `call()` или явном
 `await vk.probe()`.
+Если передан `user_agent`, он заменяет заголовок `User-Agent` HTTP-клиента;
+переданный вручную `http_client` должен предоставлять изменяемый `headers`.
 
 ### Владелец и права
 

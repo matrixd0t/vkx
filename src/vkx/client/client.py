@@ -19,10 +19,10 @@ TokenSource), cookies (словари с p и remixsid) и sources (готовы
 
 HTTP: клиент работает с протоколом HttpClient (асинхронные get/post); httpx —
 опциональная зависимость, создаётся лениво, если свой клиент не передан.
-http_client / base_api_url / v задаются у клиента и могут быть переопределены
-для отдельного запроса (call); method_versions задаёт версии по умолчанию
-отдельных методов (messages.send и messages.edit используют v=5.281). Явный v вызова
-приоритетнее.
+user_agent при передаче заменяет User-Agent в заголовках HTTP-клиента.
+http_client / base_api_url / v задаются у клиента и могут быть переопределены для
+отдельного запроса (call); method_versions задаёт версии по умолчанию отдельных
+методов (messages.send и messages.edit используют v=5.281). Явный v вызова приоритетнее.
 
 Очередь и батчинг: call() фиксирует маршрут запроса (_Queued: кандидаты, HTTP-
 настройки и текущий источник) и кладёт его в очередь; PendingApiCall ждёт
@@ -60,7 +60,7 @@ from ..models.formatting import (
 )
 from . import pagination
 from .errors import VKError, VKTimeoutError, VKTransportError, build_error
-from .http import API_HOST, API_VERSION, HttpClient, create_http_client
+from .http import API_HOST, API_VERSION, HttpClient, create_http_client, override_user_agent
 from .resolve import (
     DEFAULT_RESOLVE_CACHE_SIZE,
     DEFAULT_RESOLVE_CACHE_TTL,
@@ -504,6 +504,7 @@ class VKClient(APICategories):
         *,
         logger: logging.Logger | None = None,
         http_client: HttpClient | None = None,
+        user_agent: str | None = None,
         base_api_url: str = API_HOST,
         v: str = API_VERSION,
         method_versions: Mapping[str, str] | None = None,
@@ -539,6 +540,8 @@ class VKClient(APICategories):
         explicit_sources = _source_objects(sources)
         self._own_http = http_client is None
         self._http: HttpClient = http_client or create_http_client()
+        if user_agent is not None:
+            override_user_agent(self._http, user_agent)
         self._base_api_url = base_api_url.rstrip("/")
         built: list[TokenSource] = [
             *token_sources,

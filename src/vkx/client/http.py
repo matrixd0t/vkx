@@ -8,6 +8,7 @@ status_code / text / json(). httpx — опциональная зависимо
 
 from __future__ import annotations
 
+from collections.abc import MutableMapping
 from typing import Any, Protocol, cast, runtime_checkable
 
 DEFAULT_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:159.0) Gecko/20100101 Firefox/159.0"
@@ -41,6 +42,20 @@ class HttpClient(Protocol):
     async def post(self, url: str, **kwargs: Any) -> HttpResponse: ...
 
     async def aclose(self) -> None: ...
+
+
+def override_user_agent(http_client: HttpClient, user_agent: str) -> None:
+    """Переопределить User-Agent в заголовках HTTP-клиента."""
+    headers = getattr(http_client, "headers", None)
+    if not isinstance(headers, MutableMapping):
+        raise TypeError(
+            "user_agent: HTTP-клиент должен предоставлять изменяемые заголовки headers"
+        )
+
+    for name in tuple(headers):
+        if isinstance(name, str) and name.casefold() == "user-agent":
+            del headers[name]
+    headers["User-Agent"] = user_agent
 
 
 def create_http_client() -> HttpClient:
