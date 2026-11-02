@@ -20,7 +20,8 @@ from __future__ import annotations
 
 import contextlib
 import time
-from typing import Any, Protocol, Self, runtime_checkable
+from collections.abc import Iterable
+from typing import Any, Protocol, Self, cast, runtime_checkable
 
 from .http import HttpClient, create_http_client
 from .storage import State, Store
@@ -279,8 +280,9 @@ class WebCookieSource(_StatefulSource):
 
     refresh_seconds=300 — токен живёт максимум 5 минут, затем обновляется.
     Если VK вернул свой expires — берётся минимальный срок. Cookies и токен
-    переживают перезапуск через Store (по умолчанию SQLite CWD/.vkx/vkx.sqlite);
-    переопределите load_state/save_state для другого хранилища.
+    переживают перезапуск через Store (по умолчанию SQLite CWD/.vkx/vkx.sqlite).
+    Если ответ VK содержит новые p/remixsid в Set-Cookie, источник сохраняет
+    их для следующих запросов. Это не продлевает сессию без решения сервера.
     """
 
     def __init__(
@@ -326,7 +328,7 @@ class WebCookieSource(_StatefulSource):
         return self._token
 
     async def refresh(self) -> None:
-        """Обновление веб-токена по cookies (не чаще, чем раз в refresh_seconds)."""
+        """Обновить веб-токен и принять новые значения cookies, если их прислал VK."""
         await self._ensure_cookies()
         response = await self._http.post(
             WEB_TOKEN_URL,
@@ -338,11 +340,14 @@ class WebCookieSource(_StatefulSource):
             },
             cookies=self._cookies,
         )
+        cookies_updated = self._update_cookies(response)
         try:
             data = response.json()["data"]
             value = str(data["access_token"])
             expires = float(data["expires"])
         except (ValueError, KeyError, TypeError) as exc:
+            if cookies_updated:
+                await self._save()
             raise TokenSourceError(
                 f"act=web_token: не удалось получить токен (HTTP {response.status_code}) "
                 f"— сессия истекла, либо ошибка: {response.text[:200]}"
@@ -355,6 +360,25 @@ class WebCookieSource(_StatefulSource):
             min(now + self._refresh_seconds, expires) if self._refresh_seconds else expires
         )
         await self._save()
+
+    def _update_cookies(self, response: Any) -> bool:
+        """Скопировать ротацию p/remixsid из Set-Cookie-ответа HTTP-клиента."""
+        response_cookies = getattr(response, "cookies", None)
+        items = getattr(response_cookies, "items", None)
+        if not callable(items):
+            return False
+
+        cookies = self._cookies
+        if cookies is None:
+            return False
+
+        updated = False
+        entries = cast(Iterable[tuple[str, object]], items())
+        for name, value in entries:
+            if name in REQUIRED_WEB_COOKIES and cookies.get(name) != str(value):
+                cookies[name] = str(value)
+                updated = True
+        return updated
 
     # --- персистентность состояния ---
 
