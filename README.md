@@ -72,14 +72,16 @@ asyncio.run(main())
 
 ### Создание
 
-Передать можно статичный токен, веб-cookies, готовые источники или всё вместе:
+Передать можно статичный токен, веб-cookies, логин/пароль, готовые источники или всё вместе:
 
 ```python
-from vkx import VKClient
+from vkx import VKClient, open_store
 
 vk = VKClient(tokens="vk1.a....")
 vk = VKClient(cookies={"p": "...", "remixsid": "..."})
 vk = VKClient(tokens=["tok_a", "tok_b"], cookies=[{"p": ..., "remixsid": ...}])
+vk = VKClient(cookies="cookies.json")  # в том числе JSON-файл, созданный vkqr
+vk = VKClient(login="user@example.com", password="...", store=open_store("auth.json"))
 # переопределить User-Agent HTTP-клиента:
 vk = VKClient(tokens="vk1.a....", user_agent="MyApp/1.0")
 ```
@@ -120,10 +122,58 @@ countries = await vk.database.get_countries(count=1500)
 
 ```python
 vk = VKClient(cookies={"p": "...", "remixsid": "..."})
+vk = VKClient(cookies="cookies.json")
 ```
 
-Веб-токен получается и обновляется автоматически; токен и владелец сохраняются
-в Store (по умолчанию SQLite в `.vkx/vkx.sqlite`).
+Принимается словарь cookie, список таких словарей или JSON-файл. Поддерживаются
+простой JSON-объект `{"p": "...", "remixsid": "..."}`, список объектов и формат
+[`vkqr`](https://github.com/matrixd0t/vkqr):
+
+```json
+{
+  "cookies": [
+    {
+      "created_at": 1700000000,
+      "user_id": 580106999,
+      "p": "...",
+      "remixsid": "..."
+    }
+  ]
+}
+```
+
+Для формата `vkqr` можно передать путь прямо в `VKClient` — файл сам читается,
+метаданные `created_at` и `user_id` не отправляются как cookies. Веб-токен
+получается и обновляется автоматически; при переданном `store` токен и владелец
+сохраняются в нём. `open_store()` без пути создаёт SQLite в `.vkx/vkx.sqlite`.
+Если `open_store("cookies.json")`
+используется с JSON-файлом `vkqr`, VKX сохраняет cookie-записи в том же массиве
+`cookies`, а кеш токенов и состояния обычных токенов — в служебном поле `_vkx`.
+Старый формат JSONStore читается и преобразуется при следующем сохранении. Если
+в файле несколько разных аккаунтов, один `VKClient` всё равно будет привязан к
+первому успешно проверенному владельцу; для отдельных аккаунтов создавайте
+отдельные клиенты.
+
+### Авторизация по логину и паролю
+
+```python
+from vkx import VKClient, open_store
+
+store = open_store("auth.json")
+vk = VKClient(login="user@example.com", password="...", store=store)
+```
+
+Источник сначала пробует сохранённые cookies и обновляет по ним web-токен. Если
+VK отклоняет cookie-сессию, он пробует получить новые cookies через VK ID по
+логину/паролю, сохраняет их и повторяет получение web-токена. При следующем
+запуске можно указать только `login` и тот же `store`: сохранённый пароль будет
+восстановлен. Если для входа VK требует капчу или код подтверждения, авторизация
+только по логину/паролю завершится понятной ошибкой — автоматического обхода
+дополнительной проверки нет.
+
+Пароль сохраняется в Store **без шифрования**. Ограничьте доступ к файлу/БД и не
+коммитьте их в репозиторий; для JSON используйте права доступа, ограниченные
+текущим пользователем.
 
 ### `resolve()`
 
