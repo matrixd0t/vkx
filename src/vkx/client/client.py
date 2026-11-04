@@ -10,8 +10,9 @@ groups.getById (токен группы). Владельцем становит�
     vk.permissions  # ['Сообщения', 'Друзья', ...]
     await vk.call("messages.send", peer_id=1, message="hi")
 
-Источники токенов задаются тремя необязательными полями: tokens (строки или
-TokenSource), cookies (словари с p и remixsid) и sources (готовые TokenSource).
+Источники токенов задаются необязательными tokens (строки или TokenSource),
+cookies (словари, JSON-записи или путь к JSON-файлу), login/password или sources
+(готовые TokenSource).
 Из tokens/cookies источники создаются автоматически; можно передавать один
 элемент или iterable. Все полученные источники опрашиваются при probe: нерабочие
 отбрасываются с логированием причины, а источники с чужим владельцем — по id
@@ -50,6 +51,7 @@ import time
 from collections import deque
 from collections.abc import AsyncIterator, Awaitable, Callable, Iterable, Mapping
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Self, overload
 
 from ..models.categories import APICategories
@@ -74,6 +76,7 @@ from .resolve import (
 from .storage import Store
 from .tokens import (
     ALL_SCOPES,
+    PasswordCookieSource,
     StaticTokenSource,
     TokenSource,
     TokenSourceError,
@@ -103,7 +106,7 @@ _FORMAT_METHODS: frozenset[str] = frozenset({"messages.send", "messages.edit"})
 CookieMap = Mapping[str, str]
 TokenInput = str | TokenSource
 TokensInput = TokenInput | Iterable[TokenInput] | None
-CookiesInput = CookieMap | Iterable[CookieMap] | None
+CookiesInput = CookieMap | Iterable[CookieMap] | str | Path | None
 SourcesInput = TokenSource | Iterable[TokenSource] | None
 CaptchaHandler = Callable[[VKError], "Awaitable[Mapping[str, str] | None] | Mapping[str, str] | None"]
 """Обработчик капчи: получает VKCaptchaError, возвращает лишние параметры запроса."""
@@ -244,15 +247,43 @@ def _as_list(value: Any) -> list[Any]:
 
 
 def _iter_cookie_dicts(cookies: CookiesInput) -> list[dict[str, str]]:
-    """Нормализует cookies (один словарь или iterable) и проверяет p + remixsid."""
+    """Читает и нормализует cookies из словаря, iterable или JSON-файла."""
     if cookies is None:
         return []
-    items = [cookies] if isinstance(cookies, Mapping) else list(cookies)
+
+    payload: Any = cookies
+    if isinstance(cookies, (str, Path)):
+        path = Path(cookies)
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError) as exc:
+            raise TokenSourceError(f"не удалось прочитать JSON cookies из {path}") from exc
+
+    if isinstance(payload, Mapping):
+        if "cookies" in payload and not all(
+            name in payload for name in ("p", "remixsid")
+        ):
+            items = payload["cookies"]
+            if not isinstance(items, list):
+                raise TokenSourceError('cookies: поле "cookies" в JSON должно быть списком')
+        else:
+            items = [payload]
+    elif isinstance(payload, Iterable) and not isinstance(payload, (str, bytes)):
+        items = list(payload)
+    else:
+        raise TokenSourceError(
+            "cookies: ожидался словарь, список cookie-записей или JSON-файл"
+        )
+
     result: list[dict[str, str]] = []
     for item in items:
         if not isinstance(item, Mapping):
-            raise TypeError(f"cookies: ожидался словарь, получено {item!r}")
+            raise TokenSourceError("cookies: каждая запись должна быть JSON-объектом")
         value = {str(key): str(val) for key, val in item.items()}
+        if "p" in item and "remixsid" in item:
+            # Метаданные записей vkqr — не cookie и не должны уходить HTTP-клиенту.
+            for name in ("created_at", "user_id", "_vkx"):
+                value.pop(name, None)
         validate_web_cookies(value)
         result.append(value)
     return result
@@ -487,8 +518,9 @@ class VKClient(APICategories):
     """Клиент VK API: источники токенов одного владельца, очередь и батчинг execute.
 
     Источники задаются необязательными tokens (строки/TokenSource), cookies
-    (словари с p и remixsid; проверяются сразу) и sources (готовые TokenSource);
-    tokens/cookies превращаются в источники автоматически, можно смешивать.
+    (словари с p и remixsid, JSON-структура или путь к JSON-файлу), логином/паролем
+    или готовыми sources (TokenSource). Источники проверяются при probe; клиент
+    сохраняет привязку к владельцу первого рабочего источника.
     Конструктор не обращается к сети. probe() (автоматически при первом call())
     опрашивает все источники: нерабочие отбрасываются с логированием причины,
     клиент привязывается к владельцу первого валидного токена (user_id
@@ -510,6 +542,8 @@ class VKClient(APICategories):
         method_versions: Mapping[str, str] | None = None,
         lang: int = 0,
         store: Store | None = None,
+        login: str | None = None,
+        password: str | None = None,
         interval: float | None = None,
         max_retries: int = DEFAULT_MAX_RETRIES,
         retry_backoff: float = DEFAULT_RETRY_BACKOFF,
@@ -535,6 +569,12 @@ class VKClient(APICategories):
             raise ValueError("resolve_cache_ttl: ttl кеша не может быть отрицательным")
         if resolve_cache_size < 0:
             raise ValueError("resolve_cache_size: размер кеша не может быть отрицательным")
+        if login is not None and not login.strip():
+            raise ValueError("login: укажите логин VK")
+        if password is not None and login is None:
+            raise ValueError("password: для пароля требуется login")
+        if password == "":
+            raise ValueError("password: пароль не может быть пустым")
         cookie_dicts = _iter_cookie_dicts(cookies)
         token_sources = _token_sources(tokens, store=store)
         explicit_sources = _source_objects(sources)
@@ -543,12 +583,24 @@ class VKClient(APICategories):
         if user_agent is not None:
             override_user_agent(self._http, user_agent)
         self._base_api_url = base_api_url.rstrip("/")
+        self._password_source = (
+            PasswordCookieSource(
+                login,
+                password,
+                http=http_client,
+                store=store,
+                user_agent=user_agent,
+            )
+            if login is not None
+            else None
+        )
         built: list[TokenSource] = [
             *token_sources,
             *(
                 WebCookieSource(item, http=self._http, store=store, source=f"web{index}")
                 for index, item in enumerate(cookie_dicts)
             ),
+            *([self._password_source] if self._password_source is not None else []),
             *explicit_sources,
         ]
         self._entries = [TokenSourceEntry(s) for s in built]
@@ -1615,6 +1667,8 @@ class VKClient(APICategories):
         error = VKError("клиент закрыт", client=self)
         while self._queue:
             self._queue.popleft().request.set_error(error)
+        if self._password_source is not None:
+            await self._password_source.aclose()
         if self._own_http:
             await self._http.aclose()
 

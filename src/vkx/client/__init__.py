@@ -59,6 +59,7 @@ from .storage import (
 from .tokens import (
     CATEGORY_SCOPES,
     SCOPE_TITLES,
+    PasswordCookieSource,
     StaticTokenSource,
     TokenSource,
     TokenSourceError,
@@ -94,6 +95,7 @@ __all__ = [
     "HttpResponse",
     "JSONStore",
     "MemoryStore",
+    "PasswordCookieSource",
     "PendingApiCall",
     "ResolveCache",
     "ResolveResult",
