@@ -53,6 +53,17 @@ class FakeHttpClient:
         pass
 
 
+class FailingCallHttpClient(FakeHttpClient):
+    async def post(self, url, **kwargs):
+        method = url.rsplit("/", 1)[-1]
+        if method in {"account.getProfileInfo", "execute"}:
+            self.calls.append((method, kwargs["data"].copy()))
+            return FakeResponse(
+                {"error": {"error_code": 100, "error_msg": "Invalid parameter"}}
+            )
+        return await super().post(url, **kwargs)
+
+
 class ValidationErrorTests(unittest.IsolatedAsyncioTestCase):
     async def test_validation_error_keeps_raw_http_body_for_direct_and_batched_calls(self):
         for batching in (False, True):
@@ -79,6 +90,34 @@ class ValidationErrorTests(unittest.IsolatedAsyncioTestCase):
                         else '{"response":[{"personal":[]}],"execute_errors":[]}',
                     )
                     self.assertTrue(error.validation_error.errors())
+                finally:
+                    await client.aclose()
+
+    async def test_failure_log_reflects_whether_execute_batching_was_used(self):
+        for batching in (False, True):
+            with self.subTest(batching=batching):
+                client = VKClient(
+                    tokens="test-token",
+                    http_client=FailingCallHttpClient(),
+                    interval=0,
+                    batching=batching,
+                    pagination=False,
+                )
+                try:
+                    with (
+                        self.assertLogs("vkx.client.client", level="WARNING") as captured,
+                        self.assertRaises(VKError),
+                    ):
+                        await client.account.get_profile_info()
+
+                    messages = [record.getMessage() for record in captured.records]
+                    if batching:
+                        self.assertTrue(any("execute-батч: ошибка 100" in msg for msg in messages))
+                    else:
+                        self.assertTrue(
+                            any("VK API account.getProfileInfo: ошибка 100" in msg for msg in messages)
+                        )
+                        self.assertFalse(any("execute-батч" in msg for msg in messages))
                 finally:
                     await client.aclose()
 

@@ -1265,7 +1265,7 @@ class VKClient(APICategories):
                 v=items[0].v,
             )
         except VKError as exc:
-            await self._handle_batch_failure(entry, items, exc)
+            await self._handle_api_failure(entry, items, exc, through_execute_batch=True)
             return
         except asyncio.CancelledError:
             raise
@@ -1372,12 +1372,22 @@ class VKClient(APICategories):
             )
             request.set_error(error)
 
-    async def _handle_batch_failure(
-        self, entry: TokenSourceEntry, items: list[_Queued], exc: VKError
+    async def _handle_api_failure(
+        self,
+        entry: TokenSourceEntry,
+        items: list[_Queued],
+        exc: VKError,
+        *,
+        through_execute_batch: bool = False,
     ) -> None:
-        """Авторизационная ошибка: duck-refresh источника либо следующий кандидат."""
+        """Обрабатывает ошибку вызова: обновление токена либо переход к следующему."""
         if not exc.is_auth:
-            self._logger.warning("execute-батч: ошибка %s — %s", exc.code, exc)
+            if through_execute_batch:
+                self._logger.warning("execute-батч: ошибка %s — %s", exc.code, exc)
+            else:
+                self._logger.warning(
+                    "VK API %s: ошибка %s — %s", items[0].request.method, exc.code, exc
+                )
             self._fail_batch([item.request for item in items], exc)
             return
         self._logger.warning(
@@ -1591,7 +1601,7 @@ class VKClient(APICategories):
                         "%s: требуется капча, повтор с %s", request.method, sorted(extra)
                     )
                     return
-            await self._handle_batch_failure(item.entry, [item], exc)
+            await self._handle_api_failure(item.entry, [item], exc)
             return
         except asyncio.CancelledError:
             raise
@@ -1617,7 +1627,7 @@ class VKClient(APICategories):
                 v=item.v,
             )
         except VKError as exc:
-            await self._handle_batch_failure(item.entry, [item], exc)
+            await self._handle_api_failure(item.entry, [item], exc)
             return
         except asyncio.CancelledError:
             raise
