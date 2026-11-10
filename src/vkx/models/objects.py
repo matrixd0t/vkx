@@ -2737,6 +2737,16 @@ class ConversationPeerType(StrEnum, metaclass=BaseEnumMeta):
     GROUP = "group"
 
 
+class ConversationsFilter(StrEnum, metaclass=BaseEnumMeta):
+    """Фильтр `messages.getConversations(filter=...)`."""
+
+    ALL = "all"
+    UNREAD = "unread"
+    IMPORTANT = "important"
+    UNANSWERED = "unanswered"
+    ARCHIVE = "archive"
+
+
 class ConversationSortId(BaseModel):
     """Model: `ConversationSortId`"""
 
@@ -19233,6 +19243,7 @@ __all__ = (
     "ConversationSortId",
     "ConversationSpecialServiceType",
     "ConversationWithMessage",
+    "ConversationsFilter",
     "CountersFilter",
     "CountersGroup",
     "Country",

@@ -360,7 +360,7 @@ class MessagesCategory(BaseCategory):
             count: int | None = None,
             extended: bool | None = None,
             fields: list[UserGroupFields] | None = None,
-            filter: str | None = None,
+            filter: ConversationsFilter | str | None = None,
             group_id: int | None = None,
             offset: int | None = None,
             start_message_id: int | None = None,
@@ -370,7 +370,7 @@ class MessagesCategory(BaseCategory):
         :param count: Number of conversations to return.
         :param extended: '1' - return extra information about users and communities
         :param fields: Profile and communities fields to return.
-        :param filter: Filter to apply: 'all' - all conversations, 'unread' - conversations with unread messages, 'important' - conversations, marked as important (only for community messages), 'unanswered' - conversations, marked as unanswered (only for community messages)
+        :param filter: Filter to apply: 'all' - all conversations, 'unread' - conversations with unread messages, 'important' - conversations, marked as important (only for community messages), 'unanswered' - conversations, marked as unanswered (only for community messages), 'archive' - conversations archived by the user (web client feature, works with user tokens)
         :param group_id: Group ID (for group messages with group access token)
         :param offset: Offset needed to return a specific subset of conversations.
         :param start_message_id: ID of the message from what to return dialogs.
