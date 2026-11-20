@@ -47,10 +47,11 @@ import contextvars
 import inspect
 import json
 import logging
+import math
 import time
 from collections import deque
 from collections.abc import AsyncIterator, Awaitable, Callable, Iterable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Self, overload
 
@@ -61,7 +62,14 @@ from ..models.formatting import (
     parse_format,
 )
 from . import pagination
-from .errors import VKError, VKTimeoutError, VKTransportError, build_error
+from .errors import (
+    TRANSIENT_ERROR_CODES,
+    VKError,
+    VKHttpError,
+    VKTimeoutError,
+    VKTransportError,
+    build_error,
+)
 from .http import API_HOST, API_VERSION, HttpClient, create_http_client, override_user_agent
 from .resolve import (
     DEFAULT_RESOLVE_CACHE_SIZE,
@@ -92,9 +100,9 @@ EXECUTE_CODE_BYTES_LIMIT = 260_000
 DEFAULT_USER_INTERVAL = 0.5
 DEFAULT_GROUP_INTERVAL = 0.1
 MAX_BATCH_RETRIES = 2
-DEFAULT_MAX_RETRIES = 2
-DEFAULT_RETRY_BACKOFF = 0.5
+DEFAULT_ADAPTIVE_BACKOFF = 0.5
 MAX_ADAPTIVE_BACKOFF = 30.0
+MAX_HISTORY_SIZE = 100
 _DEFAULT_METHOD_VERSIONS = {
     "messages.send": "5.281",
     "messages.edit": "5.281",
@@ -110,6 +118,64 @@ CookiesInput = CookieMap | Iterable[CookieMap] | str | Path | None
 SourcesInput = TokenSource | Iterable[TokenSource] | None
 CaptchaHandler = Callable[[VKError], "Awaitable[Mapping[str, str] | None] | Mapping[str, str] | None"]
 """Обработчик капчи: получает VKCaptchaError, возвращает лишние параметры запроса."""
+ErrorHandler = Callable[[tuple[VKError, ...]], "float | None"]
+"""Обработчик повторов: синхронная функция ``(history) -> delay``.
+
+``history`` — снимок всех ошибок текущей повторительной последовательности
+от старой к новой, ``history[-1]`` — только что возникшая, ``len(history)`` —
+номер попытки. Возвращаемое значение — пауза в секундах до повтора; ``None`` —
+не повторять и пробросить последнее исключение наружу. ``0.0`` — повтор сразу.
+Авторизационные ошибки ``(5/27/28)`` и капча ``(14)`` до хендлера не допускаются
+(у них отдельные ветки: refresh и ``captcha_handler``)."""
+
+_TRANSIENT_TYPE_NAMES = frozenset(
+    {
+        "TimeoutException",
+        "TransportError",
+        "NetworkError",
+        "ProtocolError",
+        "ConnectError",
+        "ConnectTimeout",
+        "ReadTimeout",
+        "WriteTimeout",
+        "PoolTimeout",
+        "ReadError",
+        "WriteError",
+        "CloseError",
+        "LocalProtocolError",
+        "RemoteProtocolError",
+    }
+)
+
+
+def default_error_handler(history: tuple[VKError, ...]) -> float | None:
+    """Политика повторов по умолчанию: 2 повтора для транзиентных ошибок.
+
+    Повторяются транзиентные коды VK ``{1, 6, 9, 10, 29}``, а также сетевые /
+    HTTP-ошибки. Пауза — ``retry_after`` из ошибки либо экспонента
+    ``0.5 * 2**(n-1)``, где ``n = len(history)``; не более 30 с.
+    Транспортный сбой повторяется только при транзиентной причине
+    (``__cause__``): таймауты, ошибки сети/протокола httpx и аналоги.
+    """
+    if len(history) == 0 or len(history) > 2:
+        return None
+    last = history[-1]
+    if last.is_auth or last.is_captcha:
+        return None
+    if isinstance(last, VKHttpError):
+        pass
+    elif isinstance(last, VKTransportError):
+        cause = last.__cause__
+        if cause is not None and not _is_transient_exception(cause):
+            return None
+    elif last.code in TRANSIENT_ERROR_CODES:
+        pass
+    else:
+        return None
+    retry_after = last.retry_after
+    if retry_after is not None and retry_after > 0:
+        return retry_after
+    return min(DEFAULT_ADAPTIVE_BACKOFF * (2 ** (len(history) - 1)), MAX_ADAPTIVE_BACKOFF)
 
 
 @dataclass(frozen=True, slots=True)
@@ -121,6 +187,7 @@ class _Overrides:
     parse_format: bool | None = None
     parse_markdown: bool | None = None
     parse_html: bool | None = None
+    error_handler: ErrorHandler | None = None
 
 
 _overrides: contextvars.ContextVar[_Overrides] = contextvars.ContextVar(
@@ -134,18 +201,7 @@ def _is_transient_exception(exc: BaseException) -> bool:
     """True для сетевых сбоев, которые имеет смысл повторить (без импорта httpx)."""
     if isinstance(exc, (TimeoutError, ConnectionError)):
         return True
-    return type(exc).__name__ in {
-        "TimeoutException",
-        "TransportError",
-        "ConnectError",
-        "ConnectTimeout",
-        "ReadTimeout",
-        "WriteTimeout",
-        "PoolTimeout",
-        "ReadError",
-        "WriteError",
-        "RemoteProtocolError",
-    }
+    return any(base.__name__ in _TRANSIENT_TYPE_NAMES for base in type(exc).__mro__)
 
 
 def _retry_after_header(response: Any) -> float | None:
@@ -426,10 +482,11 @@ class _Queued:
     http_client: HttpClient  # разрешённый для запроса HTTP-клиент
     base_api_url: str  # разрешённый базовый URL API
     v: str  # разрешённая версия API
+    error_handler: ErrorHandler  # политика повторов этого запроса
     batch: bool = True  # участвовать ли в execute-батче (False — прямой вызов)
     index: int = 0  # текущий кандидат
     refreshes: int = 0  # duck-refresh попытки на текущем кандидате
-    retries: int = 0  # повторы из-за временных ошибок VK
+    history: list[VKError] = field(default_factory=list)  # ошибки повторов (от старой к новой)
     captchas: int = 0  # повторы после обработки капчи
     not_before: float = 0.0  # monotonic-время, раньше которого запрос не отправляем
 
@@ -545,8 +602,7 @@ class VKClient(APICategories):
         login: str | None = None,
         password: str | None = None,
         interval: float | None = None,
-        max_retries: int = DEFAULT_MAX_RETRIES,
-        retry_backoff: float = DEFAULT_RETRY_BACKOFF,
+        error_handler: ErrorHandler | None = None,
         timeout: float | None = None,
         captcha_handler: CaptchaHandler | None = None,
         batching: bool = True,
@@ -559,10 +615,8 @@ class VKClient(APICategories):
     ) -> None:
         if interval is not None and interval < 0:
             raise ValueError("interval: пауза между запросами не может быть отрицательной")
-        if max_retries < 0:
-            raise ValueError("max_retries: число повторов не может быть отрицательным")
-        if retry_backoff < 0:
-            raise ValueError("retry_backoff: базовая пауза не может быть отрицательной")
+        if error_handler is not None and not callable(error_handler):
+            raise TypeError("error_handler: должен быть вызываемым объектом")
         if timeout is not None and timeout <= 0:
             raise ValueError("timeout: ожидание ответа должно быть положительным")
         if resolve_cache_ttl < 0:
@@ -611,10 +665,11 @@ class VKClient(APICategories):
         self._method_versions = {**_DEFAULT_METHOD_VERSIONS, **(method_versions or {})}
         self._lang = lang
         self._interval = interval
-        self._max_retries = max_retries
-        self._retry_backoff = retry_backoff
+        self._error_handler: ErrorHandler = (
+            default_error_handler if error_handler is None else error_handler
+        )
         self._timeout = timeout
-        self._adaptive_backoff = retry_backoff
+        self._adaptive_backoff = DEFAULT_ADAPTIVE_BACKOFF
         self._cooldown_until = 0.0
         self._captcha_handler = captcha_handler
         self._batching = batching
@@ -660,6 +715,11 @@ class VKClient(APICategories):
         """Разбор HTML с учётом активного переопределения (``vk.overrides``)."""
         override = _overrides.get().parse_html
         return self._parse_html if override is None else override
+
+    def _effective_error_handler(self) -> ErrorHandler:
+        """Политика повторов с учётом активного переопределения (``vk.overrides``)."""
+        override = _overrides.get().error_handler
+        return self._error_handler if override is None else override
 
     @property
     def parse_format(self) -> bool:
@@ -747,8 +807,9 @@ class VKClient(APICategories):
         parse_format: bool | None = None,
         parse_markdown: bool | None = None,
         parse_html: bool | None = None,
+        error_handler: ErrorHandler | None = None,
     ) -> AsyncIterator[VKClient]:
-        """Временно переопределить батчинг/пагинацию/разбор разметки.
+        """Временно переопределить батчинг/пагинацию/разбор разметки/повторы.
 
         Действует на все запросы внутри блока; ``None`` оставляет текущее
         значение. Пример: ``async with vk.overrides(pagination=False): ...``.
@@ -763,6 +824,7 @@ class VKClient(APICategories):
                     current.parse_markdown if parse_markdown is None else parse_markdown
                 ),
                 parse_html=current.parse_html if parse_html is None else parse_html,
+                error_handler=current.error_handler if error_handler is None else error_handler,
             )
         )
         try:
@@ -918,12 +980,50 @@ class VKClient(APICategories):
 
     # ---------- низкоуровневый вызов API ----------
 
-    def _retry_delay(self, attempt: int, retry_after: float | None = None) -> float:
-        """Пауза перед повтором: retry_after от VK либо адаптивный backoff."""
-        if retry_after is not None and retry_after > 0:
-            return retry_after
-        delay = self._adaptive_backoff * (2 ** max(attempt - 1, 0))
-        return min(delay, MAX_ADAPTIVE_BACKOFF)
+    def _consult_handler(
+        self, history: tuple[VKError, ...], handler: ErrorHandler | None = None
+    ) -> float | None:
+        """Спрашивает у политики повторов паузу; ``None`` — не повторять.
+
+        ``history`` — все ошибки текущей повторительной последовательности
+        (от старой к новой, последняя — только что возникшая). История
+        обрезается на ``MAX_HISTORY_SIZE``: дальше последней границы hаndler
+        не вызывается. Ошибка самого хендлера, его awaitable-результат или
+        нефинитная/отрицательная задержка — трактуются как ``None`` (ошибка
+        хендлера не маскирует исходную). ``CancelledError`` в историю не
+        попадает и отдельно не обрабатывается.
+        """
+        if len(history) > MAX_HISTORY_SIZE:
+            self._logger.warning(
+                "error_handler: история достигла %d попыток, повтор отменён", MAX_HISTORY_SIZE
+            )
+            return None
+        effective = self._effective_error_handler() if handler is None else handler
+        try:
+            result: Any = effective(history)
+            if inspect.isawaitable(result):
+                self._logger.warning(
+                    "error_handler: возвращён awaitable, повтор отменён (нужна синхронная функция)"
+                )
+                return None
+        except Exception as exc:  # noqa: BLE001 — исходная ошибка важнее
+            self._logger.warning("error_handler упал: %r", exc)
+            return None
+        if result is None:
+            return None
+        try:
+            delay = float(result)  # type: ignore[arg-type]
+        except (TypeError, ValueError):
+            self._logger.warning(
+                "error_handler: возвращено не число (%r), повтор отменён", result
+            )
+            return None
+        if not math.isfinite(delay) or delay < 0:
+            self._logger.warning(
+                "error_handler: недопустимая задержка (%r), повтор отменён", result
+            )
+            return None
+        return delay
 
     def _note_rate_limit(self, retry_after: float | None = None) -> float:
         """VK просит сбавить темп: растёт общий backoff и cooldown для всех запросов.
@@ -937,8 +1037,8 @@ class VKClient(APICategories):
 
     def _note_success(self) -> None:
         """Успешный ответ: постепенно сбрасываем адаптивный backoff."""
-        if self._adaptive_backoff > self._retry_backoff:
-            self._adaptive_backoff = self._retry_backoff
+        if self._adaptive_backoff > DEFAULT_ADAPTIVE_BACKOFF:
+            self._adaptive_backoff = DEFAULT_ADAPTIVE_BACKOFF
 
     async def _respect_cooldown(self) -> None:
         """Ждёт окончания общего cooldown, выставленного троттлингом VK."""
@@ -969,13 +1069,16 @@ class VKClient(APICategories):
         http_client: HttpClient | None = None,
         base_api_url: str | None = None,
         v: str | None = None,
+        error_handler: ErrorHandler | None = None,
     ) -> tuple[dict[str, Any] | None, str]:
         """Сырой вызов VK API (без очереди и батчинга). Возвращает полный payload.
 
         http_client / base_api_url / v переопределяют настройки клиента для этого
         вызова; None означает «взять из клиента». Транзиентные сбои (сеть, HTTP
-        5xx/429 и коды 1/6/9/10/29) повторяются до max_retries раз с паузой
-        retry_backoff (или retry_after из ответа VK).
+        5xx/429 и коды 1/6/9/10/29) повторяются по политике ``error_handler``
+        (по умолчанию — ``default_error_handler``: 2 повтора) с паузой из
+        хендлера (или ``retry_after`` из ответа VK). Авторизационные ошибки и
+        капча хендлеру не передаются: их обрабатывают вызывающие уровни.
         """
         if entry is None:
             if not self._entries:
@@ -998,7 +1101,7 @@ class VKClient(APICategories):
         base = (base_api_url or self._base_api_url).rstrip("/")
         http = http_client or self._http
         url = f"{base}/method/{method}"
-        attempt = 0
+        history: list[VKError] = []
         while True:
             await self._respect_cooldown()
             try:
@@ -1006,49 +1109,67 @@ class VKClient(APICategories):
             except asyncio.CancelledError:
                 raise
             except Exception as exc:  # noqa: BLE001 — решение о повторе ниже
-                if _is_transient_exception(exc) and attempt < self._max_retries:
-                    attempt += 1
-                    delay = self._retry_delay(attempt)
-                    self._logger.warning(
-                        "VK API %s: сетевой сбой (%r), повтор #%d через %.2f с",
-                        method,
-                        exc,
-                        attempt,
-                        delay,
-                    )
-                    await asyncio.sleep(delay)
-                    continue
-                raise VKTransportError(f"{method}: {exc!r}", client=self) from exc
+                transport = VKTransportError(f"{method}: {exc!r}", client=self)
+                transport.__cause__ = exc  # type: ignore[assignment]
+                history.append(transport)
+                delay = self._consult_handler(tuple(history), error_handler)
+                if delay is None:
+                    raise transport from exc
+                self._logger.warning(
+                    "VK API %s: сетевой сбой (%r), повтор #%d через %.2f с",
+                    method,
+                    exc,
+                    len(history),
+                    delay,
+                )
+                await asyncio.sleep(delay)
+                continue
             status = getattr(response, "status_code", 200)
             if status == 429 or status >= 500:
-                if attempt < self._max_retries:
-                    attempt += 1
-                    delay = self._retry_delay(attempt, _retry_after_header(response))
-                    if status == 429:
-                        self._cooldown_until = max(
-                            self._cooldown_until, time.monotonic() + delay
-                        )
-                    self._logger.warning(
-                        "VK API %s: HTTP %s, повтор #%d через %.2f с",
-                        method,
-                        status,
-                        attempt,
-                        delay,
-                    )
-                    await asyncio.sleep(delay)
-                    continue
-                raise VKTransportError(
-                    f"{method}: HTTP {status}", client=self, raw=response.text[:300]
+                if status == 429:
+                    self._note_rate_limit(_retry_after_header(response))
+                http_error = VKHttpError(
+                    f"{method}: HTTP {status}",
+                    client=self,
+                    raw=response.text[:300],
+                    status_code=status,
+                    http_retry_after=_retry_after_header(response),
                 )
+                history.append(http_error)
+                delay = self._consult_handler(tuple(history), error_handler)
+                if delay is None:
+                    raise http_error
+                self._logger.warning(
+                    "VK API %s: HTTP %s, повтор #%d через %.2f с",
+                    method,
+                    status,
+                    len(history),
+                    delay,
+                )
+                await asyncio.sleep(delay)
+                continue
             raw_response = response.text
             try:
                 payload: dict[str, Any] = response.json()
             except ValueError as exc:
-                raise VKError(
+                decode_error = VKError(
                     f"{method}: некорректный ответ (HTTP {status})",
                     client=self,
                     raw=raw_response[:300],
-                ) from exc
+                )
+                decode_error.__cause__ = exc  # type: ignore[assignment]
+                history.append(decode_error)
+                delay = self._consult_handler(tuple(history), error_handler)
+                if delay is None:
+                    raise decode_error from exc
+                self._logger.warning(
+                    "VK API %s: некорректный ответ, повтор #%d через %.2f с",
+                    method,
+                    len(history),
+                    delay,
+                )
+                await asyncio.sleep(delay)
+                continue
             error = payload.get("error") if isinstance(payload, dict) else None
             if not error:
                 self._note_success()
@@ -1058,21 +1179,23 @@ class VKClient(APICategories):
             api_error = build_error(message, client=self, code=code, raw=payload)
             if api_error.is_rate_limit:
                 self._note_rate_limit(api_error.retry_after)
-            if api_error.is_retryable and attempt < self._max_retries:
-                attempt += 1
-                delay = self._retry_delay(attempt, api_error.retry_after)
-                self._logger.warning(
-                    "VK API %s: ошибка %s — %s, повтор #%d через %.2f с",
-                    method,
-                    code,
-                    message,
-                    attempt,
-                    delay,
-                )
-                await asyncio.sleep(delay)
-                continue
-            self._logger.warning("VK API %s: ошибка %s — %s", method, code, message)
-            raise api_error
+            if api_error.is_auth or api_error.is_captcha:
+                self._logger.warning("VK API %s: ошибка %s — %s", method, code, message)
+                raise api_error
+            history.append(api_error)
+            delay = self._consult_handler(tuple(history), error_handler)
+            if delay is None:
+                self._logger.warning("VK API %s: ошибка %s — %s", method, code, message)
+                raise api_error
+            self._logger.warning(
+                "VK API %s: ошибка %s — %s, повтор #%d через %.2f с",
+                method,
+                code,
+                message,
+                len(history),
+                delay,
+            )
+            await asyncio.sleep(delay)
 
     async def execute_raw(self, code: str) -> tuple[Any, list[dict[str, Any]]]:
         """Выполнить VKScript-код одним запросом к VK API (метод execute).
@@ -1229,7 +1352,13 @@ class VKClient(APICategories):
             if not item.batch:  # батчинг отключён для этого запроса — прямой вызов
                 singles.append(item)
                 continue
-            key = (item.entry, id(item.http_client), item.base_api_url, item.v)
+            key = (
+                item.entry,
+                id(item.http_client),
+                item.base_api_url,
+                item.v,
+                id(item.error_handler),
+            )
             by_route.setdefault(key, []).append(item)
         batches: list[list[_Queued]] = []
         for items in by_route.values():
@@ -1263,6 +1392,7 @@ class VKClient(APICategories):
                 http_client=items[0].http_client,
                 base_api_url=items[0].base_api_url,
                 v=items[0].v,
+                error_handler=items[0].error_handler,
             )
         except VKError as exc:
             await self._handle_api_failure(entry, items, exc, through_execute_batch=True)
@@ -1353,20 +1483,32 @@ class VKClient(APICategories):
                         "%s: требуется капча, повтор с %s", request.method, sorted(extra)
                     )
                     continue
-            if error.is_retryable and item.retries < self._max_retries:
-                item.retries += 1
-                item.not_before = time.monotonic() + self._retry_delay(
-                    item.retries, error.retry_after
-                )
-                self._queue.append(item)
+            if error.is_auth:
+                item.history.append(error)
                 self._logger.warning(
-                    "VK API %s (execute): временная ошибка %s — %s, повтор #%d",
-                    request.method,
-                    code,
-                    message,
-                    item.retries,
+                    "VK API %s (execute): ошибка %s — %s", request.method, code, message
                 )
+                request.set_error(error)
                 continue
+            item.history.append(error)
+            delay = self._consult_handler(tuple(item.history), item.error_handler)
+            if delay is None:
+                self._logger.warning(
+                    "VK API %s (execute): ошибка %s — %s", request.method, code, message
+                )
+                request.set_error(error)
+                continue
+            item.not_before = time.monotonic() + delay
+            self._queue.append(item)
+            self._logger.warning(
+                "VK API %s (execute): временная ошибка %s — %s, повтор #%d через %.2f с",
+                request.method,
+                code,
+                message,
+                len(item.history),
+                delay,
+            )
+            continue
             self._logger.warning(
                 "VK API %s (execute): ошибка %s — %s", request.method, code, message
             )
@@ -1435,6 +1577,7 @@ class VKClient(APICategories):
         http_client: HttpClient | None = None,
         base_api_url: str | None = None,
         v: str | None = None,
+        error_handler: ErrorHandler | None = None,
         timeout: float | None = None,
         batching: bool | None = None,
         _with_metadata: bool = False,
@@ -1444,14 +1587,17 @@ class VKClient(APICategories):
 
         http_client / base_api_url / v переопределяют настройки клиента для этого
         запроса; если не заданы — берутся настройки клиента (по умолчанию API_HOST
-        и API_VERSION). Запросы с разными http_client/base_api_url/v не батчатся
-        вместе. ``timeout`` (или значение клиента) ограничивает ожидание ответа:
+        и API_VERSION). Запросы с разными http_client/base_api_url/v/error_handler
+        не батчатся вместе. ``error_handler`` переопределяет политику повторов,
+        ``timeout`` (или значение клиента) ограничивает ожидание ответа:
         по истечении поднимается ``VKTimeoutError``.
 
         ``batching=False`` выключает батчинг для одного этого запроса: он уйдёт
         прямым вызовом метода, а не через ``execute`` (по умолчанию — значение
         клиента, см. ``vk.overrides``).
         """
+        if error_handler is not None and not callable(error_handler):
+            raise TypeError("error_handler: должен быть вызываемым объектом")
         if timeout is not None and timeout <= 0:
             raise ValueError("timeout: ожидание ответа должно быть положительным")
         if self._closed:
@@ -1486,6 +1632,7 @@ class VKClient(APICategories):
                 http_client or self._http,
                 (base_api_url or self._base_api_url).rstrip("/"),
                 v if v is not None else self._method_versions.get(method, self._v),
+                error_handler if error_handler is not None else self._effective_error_handler(),
                 batch=self._effective_batching() if batching is None else batching,
             )
         )
@@ -1589,6 +1736,7 @@ class VKClient(APICategories):
                 http_client=item.http_client,
                 base_api_url=item.base_api_url,
                 v=item.v,
+                error_handler=item.error_handler,
             )
         except VKError as exc:
             if exc.is_captcha and self._captcha_handler is not None and item.captchas < 1:
@@ -1625,6 +1773,7 @@ class VKClient(APICategories):
                 http_client=item.http_client,
                 base_api_url=item.base_api_url,
                 v=item.v,
+                error_handler=item.error_handler,
             )
         except VKError as exc:
             await self._handle_api_failure(item.entry, [item], exc)

@@ -5,7 +5,21 @@ from __future__ import annotations
 import asyncio
 import os
 
-from vkx import VKClient, VKError
+from vkx import VKClient, VKError, VKFloodError, VKHttpError, VKTransportError
+
+
+def error_handler(history: tuple[VKError, ...]) -> float | None:
+    """Разные политики для HTTP и flood-control.
+
+    ``history`` — ошибки текущей последовательности (от старой к новой).
+    Возвращает паузу до повтора или ``None`` (не повторять).
+    """
+    last = history[-1]
+    if isinstance(last, VKFloodError):
+        return 1.0 if len(history) <= 3 else None
+    if isinstance(last, (VKHttpError, VKTransportError)):
+        return (last.retry_after or 0.5) if len(history) <= 5 else None
+    return None
 
 
 async def captcha_handler(error: VKError) -> dict[str, str] | None:
@@ -23,8 +37,7 @@ async def captcha_handler(error: VKError) -> dict[str, str] | None:
 async def main() -> None:
     vk = VKClient(
         tokens=os.environ["VK_TOKEN"],
-        max_retries=3,        # сеть, HTTP 5xx/429 и коды 1/6/9/10/29
-        retry_backoff=0.5,    # базовая пауза; растёт экспоненциально
+        error_handler=error_handler,
         captcha_handler=captcha_handler,
     )
     async with vk:

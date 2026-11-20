@@ -194,6 +194,36 @@ class VKCaptchaError(VKError):
 class VKTransportError(VKError):
     """Сбой транспорта: сеть, таймаут или HTTP 5xx/429 без тела ошибки VK."""
 
+    def __init__(
+        self,
+        message: str,
+        *,
+        client: VKClient | None = None,
+        call: PendingApiCall | None = None,
+        code: int | None = None,
+        raw: Any = None,
+        status_code: int | None = None,
+        http_retry_after: float | None = None,
+    ) -> None:
+        super().__init__(message, client=client, call=call, code=code, raw=raw)
+        self.status_code = status_code
+        self._http_retry_after = http_retry_after
+
+    @property
+    def retry_after(self) -> float | None:
+        """Рекомендованная пауза: заголовок ``Retry-After`` либо поле ответа VK."""
+        if self._http_retry_after is not None:
+            return self._http_retry_after
+        return VKError.retry_after.fget(self)  # type: ignore[union-attr]
+
+
+class VKHttpError(VKTransportError):
+    """HTTP-ошибка транспорта: статус 429/5xx без тела ошибки VK.
+
+    Поля: ``status_code`` (HTTP-статус) и ``retry_after`` (заголовок
+    ``Retry-After``, если был).
+    """
+
 
 class VKTimeoutError(VKError):
     """Запрос не получил ответ за отведённое время (клиентский таймаут).
