@@ -16279,85 +16279,6 @@ class WallCommentDonutPlaceholder(BaseModel):
     """Property `WallCommentDonutPlaceholder.text`."""
 
 
-class WallItem(BaseModel):
-    """Model: `WallItem`"""
-
-    copy_history: list["WallpostFull"] | None = Field(
-        default=None,
-    )
-    """Property `WallItem.copy_history`."""
-
-    can_edit: bool | None = Field(
-        default=None,
-    )
-    """Information whether current user can edit the post."""
-
-    created_by: int | None = Field(
-        default=None,
-    )
-    """Post creator ID (if post still can be edited)."""
-
-    can_delete: bool | None = Field(
-        default=None,
-    )
-    """Information whether current user can delete the post."""
-
-    can_pin: bool | None = Field(
-        default=None,
-    )
-    """Information whether current user can pin the post."""
-
-    donut: "WallpostDonut | None" = Field(
-        default=None,
-    )
-    """Property `WallItem.donut`."""
-
-    is_pinned: bool | None = Field(
-        default=None,
-    )
-    """Information whether the post is pinned."""
-
-    comments: "CommentsInfo | None" = Field(
-        default=None,
-    )
-    """Property `WallItem.comments`."""
-
-    marked_as_ads: bool | None = Field(
-        default=None,
-    )
-    """Information whether the post is marked as ads."""
-
-    topic_id: int | None = Field(
-        default=None,
-    )
-    """Topic ID. Allowed values can be obtained from newsfeed.getPostTopics method."""
-
-    short_text_rate: float | None = Field(
-        default=None,
-    )
-    """Preview length control parameter."""
-
-    hash: str | None = Field(
-        default=None,
-    )
-    """Hash for sharing."""
-
-    type: "PostType | None" = Field(
-        default=None,
-    )
-    """Property `WallItem.type`."""
-
-    feedback: "ItemWallpostFeedback | None" = Field(
-        default=None,
-    )
-    """Property `WallItem.feedback`."""
-
-    to_id: int | None = Field(
-        default=None,
-    )
-    """Property `WallItem.to_id`."""
-
-
 class WallpostInnerType(StrEnum, metaclass=BaseEnumMeta):
     WALL_WALLPOST = "wall_wallpost"
 
@@ -16461,6 +16382,103 @@ class Wallpost(BaseModel):
     )
     """Count of views."""
     inner_type: 'WallpostInnerType | None' = None
+
+
+class WallItem(CarouselBase, Wallpost):
+    """Model: `WallItem`"""
+
+    copy_history: list["WallpostFull"] | None = Field(
+        default=None,
+    )
+    """Property `WallItem.copy_history`."""
+
+    can_edit: bool | None = Field(
+        default=None,
+    )
+    """Information whether current user can edit the post."""
+
+    created_by: int | None = Field(
+        default=None,
+    )
+    """Post creator ID (if post still can be edited)."""
+
+    can_delete: bool | None = Field(
+        default=None,
+    )
+    """Information whether current user can delete the post."""
+
+    can_pin: bool | None = Field(
+        default=None,
+    )
+    """Information whether current user can pin the post."""
+
+    donut: "WallpostDonut | None" = Field(
+        default=None,
+    )
+    """Property `WallItem.donut`."""
+
+    is_pinned: bool | None = Field(
+        default=None,
+    )
+    """Information whether the post is pinned."""
+
+    comments: "CommentsInfo | None" = Field(
+        default=None,
+    )
+    """Property `WallItem.comments`."""
+
+    marked_as_ads: bool | None = Field(
+        default=None,
+    )
+    """Information whether the post is marked as ads."""
+
+    topic_id: int | None = Field(
+        default=None,
+    )
+    """Topic ID. Allowed values can be obtained from newsfeed.getPostTopics method."""
+
+    short_text_rate: float | None = Field(
+        default=None,
+    )
+    """Preview length control parameter."""
+
+    hash: str | None = Field(
+        default=None,
+    )
+    """Hash for sharing."""
+
+    check_sign: bool | None = Field(
+        default=None,
+    )
+    zoom_text: bool | None = Field(
+        default=None,
+    )
+    post_author_data: "WallpostAuthorData | None" = Field(
+        default=None,
+    )
+    header: "WallpostHeader | None" = Field(
+        default=None,
+    )
+    reaction_set_id: str | None = Field(
+        default=None,
+    )
+    badges: "WallpostBadge | None" = Field(
+        default=None,
+    )
+    type: "PostType | None" = Field(
+        default=None,
+    )
+    """Property `WallItem.type`."""
+
+    feedback: "ItemWallpostFeedback | None" = Field(
+        default=None,
+    )
+    """Property `WallItem.feedback`."""
+
+    to_id: int | None = Field(
+        default=None,
+    )
+    """Property `WallItem.to_id`."""
 
 
 class WallpostAttachment(BaseModel):
